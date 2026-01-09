@@ -74,16 +74,15 @@ dependencies {
     implementation(libs.material)
 
     // 【關鍵設定 5】Google Oboe (透過 Prefab)
-    // 如果你的 libs.versions.toml 沒定義 oboe，這裡直接寫字串
-    implementation("com.google.oboe:oboe:1.9.3")
+    implementation(libs.oboe)
 
     // 【關鍵設定 6】Coroutines (用於 StateFlow)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation(libs.kotlinx.coroutines.core)
 
     // 測試相關
     testImplementation(libs.junit)
     // 用於測試 Coroutines (runTest, TestScope)
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation(libs.kotlinx.coroutines.test)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
