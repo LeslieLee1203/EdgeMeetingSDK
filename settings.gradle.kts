@@ -21,3 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "EdgeMeetingSDK"
 include(":app")
+include(":meeting-core")
+include(":meeting-engine")
