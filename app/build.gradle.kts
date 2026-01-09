@@ -40,6 +40,9 @@ android {
 }
 
 dependencies {
+    implementation(project(":meeting-core"))
+    implementation(project(":meeting-engine"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
