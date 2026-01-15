@@ -3,6 +3,7 @@ package com.edgemeeting.engine
 import com.edgemeeting.core.MeetingSession
 import com.edgemeeting.core.model.MeetingState
 import com.edgemeeting.core.model.TranscriptSegment
+import com.edgemeeting.engine.bridge.AudioCallback
 import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineBridge
 import kotlinx.coroutines.flow.Flow
@@ -15,6 +16,19 @@ import kotlinx.coroutines.flow.emptyFlow
 class RkMeetingSession(
     private val bridge: EngineBridge
 ) : MeetingSession {
+
+    init {
+        // 註冊 Callback
+        bridge.setCallback(object : AudioCallback {
+            override fun onAudioData(data: FloatArray) {
+                // 這裡會非常頻繁被呼叫 (每 160ms 一次)
+                // 為了驗證 Phase 3 成功，我們印出陣列長度與第一個值
+                if (data.isNotEmpty()) {
+                    android.util.Log.d("JNI_CALLBACK", "Received ${data.size} frames. First: ${data[0]}")
+                }
+            }
+        })
+    }
 
     // 狀態管理
     private val _state = MutableStateFlow<MeetingState>(MeetingState.Idle)

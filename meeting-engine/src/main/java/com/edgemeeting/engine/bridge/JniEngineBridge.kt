@@ -7,6 +7,9 @@ class JniEngineBridge: EngineBridge {
         System.loadLibrary("meeting-engine")
     }
 
+    // 持有 callback 引用，避免被 GC 回收 (雖然 JNI 會有 GlobalRef，但這邊持有比較安全)
+    private var callback: AudioCallback? = null
+
     override fun init(modelPath: String): BridgeResult {
         // 呼叫 native 方法，取得簡單的 Int 結果
         val resultCode = nativeInit(modelPath)
@@ -17,6 +20,11 @@ class JniEngineBridge: EngineBridge {
         } else {
             BridgeResult.Failure(resultCode, "Native init failed with code $resultCode")
         }
+    }
+
+    override fun setCallback(callback: AudioCallback) {
+        this.callback = callback
+        nativeSetCallback(callback)
     }
 
     override fun startRecording() {
@@ -34,7 +42,15 @@ class JniEngineBridge: EngineBridge {
     // ========== JNI 定義區 (External Functions) ==========
     // 命名慣例：加上 native 前綴，區分介面與實作
     private external fun nativeInit(modelPath: String): Int
+    private external fun nativeSetCallback(callback: AudioCallback)
     private external fun nativeStart()
     private external fun nativeStop()
     private external fun nativeRelease()
+
+    // --- 供 C++ 呼叫的方法 (Called by JNI) ---
+    // C++ 無法直接呼叫 Interface，通常會呼叫這個 JniEngineBridge 的方法，再轉傳給 callback
+    // 記得要加 @Keep 防止被 ProGuard 混淆 (如果沒有 @Keep，至少要確保規則有設定)
+    fun onNativeAudioData(data: FloatArray) {
+        callback?.onAudioData(data)
+    }
 }

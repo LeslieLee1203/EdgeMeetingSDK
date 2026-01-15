@@ -18,6 +18,8 @@ add_library(
         native-lib.cpp
         AudioRecorder.cpp
         AudioRecorder.h
+        AudioProcessor.cpp
+        AudioProcessor.h
 )
 
 # 3. 連結 Library
