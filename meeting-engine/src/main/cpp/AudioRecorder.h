@@ -8,6 +8,7 @@
 #include <oboe/Oboe.h>
 #include <memory>
 #include <android/log.h>
+#include "RingBuffer.h"
 
 #define MODULE_TAG "EdgeAudio"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, MODULE_TAG, __VA_ARGS__)
@@ -22,8 +23,10 @@ public:
     // inputPreset: 0=Default, 1=Generic, 6=VoiceRecognition ...
     // deviceId: 0=Default (Auto), 其他 ID 用於指定特定 Loopback 裝置
     bool start(int inputPreset = 0, int deviceId = 0);
-
     void stop();
+
+    // 給外部讀取音訊的介面
+    size_t readAudio(float* dest, size_t count);
 
     // Oboe Callback
     oboe::DataCallbackResult onAudioReady(
@@ -36,6 +39,9 @@ public:
 private:
     std::shared_ptr<oboe::AudioStream> stream;
     bool isRecording = false;
+
+    // Buffer 指標
+    std::unique_ptr<RingBuffer<float>> audioBuffer;
 };
 
 #endif //EDGEMEETINGSDK_AUDIORECORDER_H

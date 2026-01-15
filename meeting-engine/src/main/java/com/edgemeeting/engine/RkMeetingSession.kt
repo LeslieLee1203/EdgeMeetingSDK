@@ -46,14 +46,31 @@ class RkMeetingSession(
     }
 
     override fun start() {
-        // TODO
+        // 1. 狀態防呆：只有 Ready 才能開始
+        val currentState = _state.value
+        if (currentState is MeetingState.Ready) {
+
+            // 2. 呼叫 JNI
+            bridge.startRecording()
+
+            // 3. 更新狀態
+            _state.value = MeetingState.Listening
+        }
     }
 
     override fun stop() {
-        // TODO
+        val currentState = _state.value
+        if (currentState is MeetingState.Listening) {
+
+            bridge.stopRecording()
+
+            // 更新狀態 (回到 Ready)
+            _state.value = MeetingState.Ready
+        }
     }
 
     override fun release() {
-        // TODO
+        bridge.release()
+        _state.value = MeetingState.Idle
     }
 }

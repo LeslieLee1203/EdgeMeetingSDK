@@ -4,7 +4,10 @@
 #include "AudioRecorder.h"
 #include <cmath>
 
-AudioRecorder::AudioRecorder() {}
+AudioRecorder::AudioRecorder() {
+    // 初始化 Buffer，給 16000 samples (約 1秒緩衝)
+    audioBuffer = std::make_unique<RingBuffer<float>>(16000);
+}
 
 AudioRecorder::~AudioRecorder() {
     stop();
@@ -46,7 +49,7 @@ bool AudioRecorder::start(int inputPreset, int deviceId) {
     }
 
     isRecording = true;
-    LOGD("Audio stream started. SampleRate: %d, DeviceId: %d", stream->getSampleRate(), stream->getDeviceId());
+    LOGD("Audio stream started. SampleRate: %d", stream->getSampleRate());
     return true;
 }
 
@@ -60,6 +63,12 @@ void AudioRecorder::stop() {
     }
 }
 
+// 讀取實作
+size_t AudioRecorder::readAudio(float* dest, size_t count) {
+    if (!audioBuffer) return 0;
+    return audioBuffer->read(dest, count);
+}
+
 oboe::DataCallbackResult AudioRecorder::onAudioReady(
         oboe::AudioStream *audioStream,
         void *audioData,
@@ -67,6 +76,13 @@ oboe::DataCallbackResult AudioRecorder::onAudioReady(
 
     // 簡單計算 RMS (音量) 來驗證麥克風有在動
     auto *floatData = static_cast<float *>(audioData);
+
+    // 1. 寫入 Ring Buffer (這是 Phase 2.5 的核心)
+    if (audioBuffer) {
+        audioBuffer->write(floatData, numFrames);
+    }
+
+    // 2. 為了驗證沒有卡死，我們保留 RMS Log
     float sum = 0.0f;
     for (int i = 0; i < numFrames; ++i) {
         sum += floatData[i] * floatData[i];
@@ -75,11 +91,8 @@ oboe::DataCallbackResult AudioRecorder::onAudioReady(
 
     // 過濾極小雜訊，避免 Log 洗版
     if (rms > 0.01f) {
-        // 視覺化音量條
-        int bars = (int)(rms * 50);
-        if (bars > 50) bars = 50;
-        std::string visualizer(bars, '|');
-        LOGD("MIC RMS: %.4f %s", rms, visualizer.c_str());
+        // 簡單過濾極小雜訊
+        LOGD("MIC RMS: %.4f", rms);
     }
 
     return oboe::DataCallbackResult::Continue;
