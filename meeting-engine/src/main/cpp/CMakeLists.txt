@@ -16,6 +16,8 @@ add_library(
         SHARED
         # 這裡指定你的 C++ 原始碼檔案
         native-lib.cpp
+        AudioRecorder.cpp
+        AudioRecorder.h
 )
 
 # 3. 連結 Library
