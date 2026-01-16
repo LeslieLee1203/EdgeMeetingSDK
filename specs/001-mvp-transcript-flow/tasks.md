@@ -37,9 +37,9 @@
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
 - [x] T006 [P] [US1] 建立字幕輸出節奏測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTranscriptTest.kt`）
-- [ ] T007 [P] [US1] 建立停止後 2 秒內不再輸出測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTranscriptTest.kt`）
-- [ ] T008 [P] [US1] 建立字幕欄位完整性與時間遞增測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTranscriptTest.kt`）
-- [ ] T009 [P] [US1] 建立更新間隔 95% 不超過 1.5 秒測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTranscriptTest.kt`）
+- [x] T007 [P] [US1] 建立停止後 2 秒內不再輸出測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTranscriptTest.kt`）
+- [x] T008 [P] [US1] 建立字幕欄位完整性與時間遞增測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTranscriptTest.kt`）
+- [x] T009 [P] [US1] 建立更新間隔 95% 不超過 1.5 秒測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTranscriptTest.kt`）
 
 ### Implementation for User Story 1
 
