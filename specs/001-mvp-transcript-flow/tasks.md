@@ -9,8 +9,8 @@
 
 **Purpose**: 任務最小化，確認測試與規格路徑
 
-- [ ] T001 確認測試依賴可用：檢查 `meeting-engine/build.gradle.kts` 已含 `kotlinx-coroutines-test`（單一步驟）
-- [ ] T002 建立任務對應測試檔案：建立空測試檔 `meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTranscriptTest.kt`（單一步驟）
+- [x] T001 確認測試依賴可用：檢查 `meeting-engine/build.gradle.kts` 已含 `kotlinx-coroutines-test`（單一步驟）
+- [x] T002 建立任務對應測試檔案：建立空測試檔 `meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTranscriptTest.kt`（單一步驟）
 
 ---
 
