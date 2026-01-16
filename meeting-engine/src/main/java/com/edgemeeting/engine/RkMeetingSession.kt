@@ -123,30 +123,29 @@ class RkMeetingSession(
     }
 
     override fun start() {
-        // 1. 狀態防呆：只有 Ready 才能開始
+        // 先做狀態檢查，只有 Ready 才能開始，避免直接進入錄音與輸出流程
         val currentState = _state.value
-        if (currentState is MeetingState.Ready) {
-
-            // 2. 呼叫 JNI
-            bridge.startRecording()
-
-            // 2.5 啟動字幕輸出（只在 Listening 狀態下應該有輸出）
-            startTranscriptLoop { segments ->
-                val emitted = transcriptFlowInternal.tryEmit(segments)
-                if (!emitted) {
-                    android.util.Log.w("TRANSCRIPT_FLOW", "Drop transcript emission")
-                }
-            }
-
-            // 3. 更新狀態
-            _state.value = MeetingState.Listening
-        } else {
-            // 未準備就啟動屬於錯誤操作，需回報 Error
+        if (currentState !is MeetingState.Ready) {
             _state.value = MeetingState.Error(
                 code = 400,
                 message = "Start called before Ready"
             )
+            return
         }
+
+        // 呼叫 JNI
+        bridge.startRecording()
+
+        // 啟動字幕輸出（在 Listening 狀態下應該有輸出）
+        startTranscriptLoop { segments ->
+            val emitted = transcriptFlowInternal.tryEmit(segments)
+            if (!emitted) {
+                android.util.Log.w("TRANSCRIPT_FLOW", "Drop transcript emission")
+            }
+        }
+
+        // 更新狀態
+        _state.value = MeetingState.Listening
     }
 
     override fun stop() {

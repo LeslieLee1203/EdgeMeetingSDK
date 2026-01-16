@@ -68,7 +68,7 @@
 ### Implementation for User Story 2
 
 - [x] T018 [US2][GREEN] 最小修改 `start()` 讓測試轉綠（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
-- [ ] T019 [US2][REFACTOR] 清理 `start()` 的錯誤處理與註解（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [x] T019 [US2][REFACTOR] 清理 `start()` 的錯誤處理與註解（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
 
 - [ ] T020 [US2][RED] 建立準備失敗錯誤測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionStateTest.kt`）
 - [ ] T021 [US2][GREEN] 最小修改 `prepare()` 讓測試轉綠（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
