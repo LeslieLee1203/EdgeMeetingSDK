@@ -1,6 +1,7 @@
 package com.edgemeeting.engine
 
 import com.edgemeeting.core.model.MeetingState
+import com.edgemeeting.engine.bridge.AudioCallback
 import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineBridge
 import junit.framework.TestCase.assertEquals
@@ -21,6 +22,7 @@ class RkMeetingSessionTest {
         }
 
         // 其他方法暫時不重要，留空即可
+        override fun setCallback(callback: AudioCallback) = Unit
         override fun startRecording() {}
         override fun stopRecording() {}
         override fun release() {}

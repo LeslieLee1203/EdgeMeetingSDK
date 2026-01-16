@@ -14,6 +14,9 @@
 - 新增 `TimeSource` 介面提供可控時間來源。
 - 新增 `FakeTimeSource` 供測試控制時間。
 - 新增 `TranscriptGenerator` 介面供可控字幕產生。
+- 新增字幕輸出節奏的單元測試。
+- 修正測試用 `FakeEngineBridge` 遺漏 `setCallback` 實作。
+- 修正字幕節奏測試的 `assertTrue` 參數順序。
 
 ## [2026-01-09]
 
