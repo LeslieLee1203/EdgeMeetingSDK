@@ -140,6 +140,12 @@ class RkMeetingSession(
 
             // 3. 更新狀態
             _state.value = MeetingState.Listening
+        } else {
+            // 未準備就啟動屬於錯誤操作，需回報 Error
+            _state.value = MeetingState.Error(
+                code = 400,
+                message = "Start called before Ready"
+            )
         }
     }
 

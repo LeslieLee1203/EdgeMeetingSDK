@@ -63,13 +63,16 @@
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T017 [P] [US2] 建立未準備即啟動錯誤測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionStateTest.kt`）
-- [ ] T018 [P] [US2] 建立準備失敗錯誤測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionStateTest.kt`）
+- [x] T017 [US2][RED] 建立未準備即啟動錯誤測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionStateTest.kt`）
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] 強化 `prepare()` 錯誤狀態回報（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
-- [ ] T020 [US2] 強化 `start()` 狀態檢查與錯誤回報（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [x] T018 [US2][GREEN] 最小修改 `start()` 讓測試轉綠（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [ ] T019 [US2][REFACTOR] 清理 `start()` 的錯誤處理與註解（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+
+- [ ] T020 [US2][RED] 建立準備失敗錯誤測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionStateTest.kt`）
+- [ ] T021 [US2][GREEN] 最小修改 `prepare()` 讓測試轉綠（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [ ] T022 [US2][REFACTOR] 清理 `prepare()` 的錯誤處理與註解（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
 
 **Checkpoint**: User Story 2 works independently with US1
 
@@ -83,11 +86,12 @@
 
 ### Tests for User Story 3 (REQUIRED) ⚠️
 
-- [ ] T021 [P] [US3] 建立長時間穩定性測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionStabilityTest.kt`）
+- [ ] T023 [US3][RED] 建立長時間穩定性測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionStabilityTest.kt`）
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] 補齊長時間運行的記憶體釋放與取消處理（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [ ] T024 [US3][GREEN] 最小修改讓穩定性測試轉綠（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [ ] T025 [US3][REFACTOR] 清理長時間運行的釋放與取消流程（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
 
 **Checkpoint**: All user stories are independently functional
 
@@ -97,8 +101,8 @@
 
 **Purpose**: 文件與驗證
 
-- [ ] T023 [P] 更新 quickstart 驗證步驟（`specs/001-mvp-transcript-flow/quickstart.md`）
-- [ ] T024 [P] 更新 CHANGELOG（`CHANGELOG.md`）
+- [ ] T026 更新 quickstart 驗證步驟（`specs/001-mvp-transcript-flow/quickstart.md`）
+- [ ] T027 更新 CHANGELOG（`CHANGELOG.md`）
 
 ---
 
@@ -119,20 +123,11 @@
 
 ### Within Each User Story
 
+- 每個需求只做一個 RED → GREEN → REFACTOR 迴圈，完成後再進下一個需求
 - Tests MUST be written and FAIL before implementation
 - 先用註解說明「為什麼要這樣做」，再寫程式碼
 - 每次變更只包含一個 function 或一段程式碼
 - 完成一段程式碼後必須等待使用者確認
-
----
-
-## Parallel Example: User Story 1
-
-```text
-Task: T006 [US1] Subtitle cadence test in meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTranscriptTest.kt
-Task: T007 [US1] Stop emission test in meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTranscriptTest.kt
-Task: T008 [US1] Field completeness test in meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTranscriptTest.kt
-```
 
 ---
 
