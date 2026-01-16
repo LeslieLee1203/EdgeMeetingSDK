@@ -1,50 +1,54 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+- 版本變更: 未定義 → 1.0.0
+- 原則變更: 新增「程式碼品質與可讀性」「測試先行與 TDD 紀律」「使用者體驗一致性」「效能預算與資源控制」
+- 新增章節: 開發流程要求、品質門檻與驗證
+- 移除章節: 無
+- Templates requiring updates:
+  - ✅ .specify/templates/plan-template.md
+  - ✅ .specify/templates/spec-template.md
+  - ✅ .specify/templates/tasks-template.md
+  - ✅ .specify/templates/checklist-template.md
+  - ⚠ .specify/templates/commands/*.md（找不到路徑）
+- Follow-up TODOs:
+  - TODO(RATIFICATION_DATE): 尚未提供原始採納日期
+-->
+# EdgeMeetingSDK Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### 程式碼品質與可讀性
+程式碼必須可讀、可維護、可測。遵守 KISS/YAGNI/DRY/SOLID。
+所有程式碼與建議必須包含錯誤處理與明確失敗路徑。
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### 測試先行與 TDD 紀律
+TDD 為強制流程：先寫測試且必須失敗，再進行最小實作。
+產出程式碼前必須先以註解說明「為什麼要這樣做」，再寫程式碼。
+每次只允許輸出一個 function 或一段程式碼，需經使用者驗證後才能繼續。
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### 使用者體驗一致性
+UI/UX 必須與既有設計語言與互動模式一致。
+新增介面或文案需符合既有元件與樣式，避免未定義的視覺或行為。
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### 效能預算與資源控制
+關鍵路徑必須有明確效能目標與量測策略。
+不得引入無必要的記憶體、CPU 或 I/O 開銷，需有可量化的理由。
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+## 開發流程要求
+1. 先寫測試並確認失敗，再進行最小實作（TDD 小步快跑）。
+2. 實作前先用註解說明理由，再撰寫程式碼。
+3. 每次變更只包含一個 function 或一段程式碼，通過驗證再前進。
+4. 所有變更需維持錯誤處理與可回復性。
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
-
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
-
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## 品質門檻與驗證
+- 測試覆蓋必須對應需求與使用情境，避免只測 happy path。
+- UI/UX 變更需檢查一致性（元件、字型、間距、互動）。
+- 效能變更需附量測基準或比較結果，無量測不得宣稱優化。
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+- 本憲章優先於其他慣例與模板，違反須明確記錄原因與替代方案。
+- 任何修改需附變更動機、影響範圍與遷移或教育計畫。
+- 版本採語意化版本：破壞性變更升 MAJOR；新增原則或章節升 MINOR；文字澄清升 PATCH。
+- 每次計畫、規格與任務文件需檢核憲章條款的符合性。
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
-
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: TODO(RATIFICATION_DATE): 尚未提供原始採納日期 | **Last Amended**: 2026-01-16

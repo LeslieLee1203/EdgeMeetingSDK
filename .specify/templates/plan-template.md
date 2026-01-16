@@ -31,7 +31,12 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- 測試先行 (TDD)：先寫測試且確認失敗，再進行最小實作
+- 先註解說明「為什麼要這樣做」，再寫程式碼
+- 每次輸出一個 function 或一段程式碼，需經驗證才能前進
+- UI/UX 一致性：使用既有元件與樣式，避免未定義行為
+- 效能預算：關鍵路徑有量測與目標，避免無理由開銷
+- 程式碼品質：KISS/YAGNI/DRY/SOLID + 錯誤處理完整
 
 ## Project Structure
 

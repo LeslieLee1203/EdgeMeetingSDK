@@ -95,6 +95,11 @@
 - **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
 - **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
+### 非功能需求
+
+- **NFR-001**: UI/UX 必須與既有設計系統一致（元件、字型、間距、互動）
+- **NFR-002**: 關鍵路徑效能目標需明確化並可量測（例如 p95、延遲或資源上限）
+
 ### Key Entities *(include if feature involves data)*
 
 - **[Entity 1]**: [What it represents, key attributes without implementation]

@@ -20,13 +20,13 @@
   ============================================================================
 -->
 
-## [Category 1]
+## 測試與程式碼品質
 
 - [ ] CHK001 First checklist item with clear action
 - [ ] CHK002 Second checklist item
 - [ ] CHK003 Third checklist item
 
-## [Category 2]
+## 使用者體驗與效能
 
 - [ ] CHK004 Another category item
 - [ ] CHK005 Item with specific criteria
