@@ -1,5 +1,24 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
+
+# Gradle / Android build outputs
+.gradle/
+build/
+out/
 *.iml
-.gradle
+*.log
+/build
+/captures
+.externalNativeBuild
+.cxx
+
+# Local Android config
+local.properties
 /local.properties
 /.idea/caches
 /.idea/libraries
@@ -7,9 +26,17 @@
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
+
+# Java / JVM artifacts
+*.class
+*.jar
+
+# Native build artifacts
+*.o
+*.so
+*.a
+*.dll
+*.exe
+
+# Secrets
+.env*
