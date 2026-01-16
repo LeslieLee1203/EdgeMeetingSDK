@@ -101,10 +101,10 @@ class RkMeetingSession(
     }
 
     override fun prepare() {
-// 1. 先通知 UI 我們正在忙 (顯示轉圈圈)
+        // 1. 先通知 UI 我們正在忙 (顯示轉圈圈)
         _state.value = MeetingState.Preparing
 
-        // 2. 呼叫底層 C++ (這裡是同步呼叫，會卡住一下，之後我們再優化到背景執行緒)
+        // 2. 呼叫底層 C++ (同步呼叫，之後再優化到背景執行緒)
         // 暫時寫死路徑，Phase 1 重點是架構跑通
         val defaultModelPath = "/data/local/tmp/models"
         val result = bridge.init(defaultModelPath)

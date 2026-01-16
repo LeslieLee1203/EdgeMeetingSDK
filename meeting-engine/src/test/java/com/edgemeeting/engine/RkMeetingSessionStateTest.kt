@@ -31,4 +31,29 @@ class RkMeetingSessionStateTest {
             assertTrue("錯誤訊息不可為空", state.message.isNotBlank())
         }
     }
+
+    @Test
+    fun `prepare failure should become Error`() = runTest {
+        // 為了確保準備失敗可回報錯誤狀態，模擬 init 失敗。
+        val bridge = object : EngineBridge {
+            override fun init(modelPath: String): BridgeResult =
+                BridgeResult.Failure(123, "Init failed")
+
+            override fun setCallback(callback: AudioCallback) = Unit
+            override fun startRecording() = Unit
+            override fun stopRecording() = Unit
+            override fun release() = Unit
+        }
+
+        val session = RkMeetingSession(bridge)
+
+        session.prepare()
+
+        val state = session.state.value
+        assertTrue("準備失敗應回報錯誤", state is MeetingState.Error)
+        if (state is MeetingState.Error) {
+            assertTrue("錯誤碼應透傳", state.code == 123)
+            assertTrue("錯誤訊息不可為空", state.message.isNotBlank())
+        }
+    }
 }
