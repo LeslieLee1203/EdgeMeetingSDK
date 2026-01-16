@@ -43,13 +43,13 @@
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] 在 `RkMeetingSession` 新增注入欄位（timeSource）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
-- [ ] T011 [US1] 在 `RkMeetingSession` 新增注入欄位（transcriptGenerator）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
-- [ ] T012 [US1] 在 `RkMeetingSession` 實作每秒輸出 loop（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
-- [ ] T013 [US1] 在 `RkMeetingSession` 實作 `transcriptFlow` 緩衝策略（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
-- [ ] T014 [US1] 在 `RkMeetingSession.start()` 加入輸出啟動（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
-- [ ] T015 [US1] 在 `RkMeetingSession.stop()` 加入輸出停止（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
-- [ ] T016 [US1] 在 `RkMeetingSession.release()` 加入清理（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [x] T010 [US1] 在 `RkMeetingSession` 新增注入欄位（timeSource）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [x] T011 [US1] 在 `RkMeetingSession` 新增注入欄位（transcriptGenerator）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [x] T012 [US1] 在 `RkMeetingSession` 實作每秒輸出 loop（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [x] T013 [US1] 在 `RkMeetingSession` 實作 `transcriptFlow` 緩衝策略（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [x] T014 [US1] 在 `RkMeetingSession.start()` 加入輸出啟動（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [x] T015 [US1] 在 `RkMeetingSession.stop()` 加入輸出停止（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [x] T016 [US1] 在 `RkMeetingSession.release()` 加入清理（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
 
 **Checkpoint**: User Story 1 can be demoed independently
 

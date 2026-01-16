@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Test
 
 class RkMeetingSessionTranscriptTest {
@@ -25,7 +26,14 @@ class RkMeetingSessionTranscriptTest {
             override fun release() = Unit
         }
 
-        val session = RkMeetingSession(bridge)
+        val timeSource = object : TimeSource {
+            override fun nowMs(): Long = testScheduler.currentTime
+        }
+        val session = RkMeetingSession(
+            bridge = bridge,
+            timeSource = timeSource,
+            transcriptDispatcher = StandardTestDispatcher(testScheduler)
+        )
         session.prepare()
         session.start()
 
@@ -39,6 +47,8 @@ class RkMeetingSessionTranscriptTest {
         try {
             advanceTimeBy(15_000)
         } finally {
+            session.stop()
+            session.release()
             job.cancel()
         }
 
@@ -60,7 +70,14 @@ class RkMeetingSessionTranscriptTest {
             override fun release() = Unit
         }
 
-        val session = RkMeetingSession(bridge)
+        val timeSource = object : TimeSource {
+            override fun nowMs(): Long = testScheduler.currentTime
+        }
+        val session = RkMeetingSession(
+            bridge = bridge,
+            timeSource = timeSource,
+            transcriptDispatcher = StandardTestDispatcher(testScheduler)
+        )
         session.prepare()
         session.start()
 
@@ -103,7 +120,14 @@ class RkMeetingSessionTranscriptTest {
             override fun release() = Unit
         }
 
-        val session = RkMeetingSession(bridge)
+        val timeSource = object : TimeSource {
+            override fun nowMs(): Long = testScheduler.currentTime
+        }
+        val session = RkMeetingSession(
+            bridge = bridge,
+            timeSource = timeSource,
+            transcriptDispatcher = StandardTestDispatcher(testScheduler)
+        )
         session.prepare()
         session.start()
 
@@ -117,6 +141,8 @@ class RkMeetingSessionTranscriptTest {
         try {
             advanceTimeBy(3_000)
         } finally {
+            session.stop()
+            session.release()
             job.cancel()
         }
 
@@ -146,7 +172,14 @@ class RkMeetingSessionTranscriptTest {
             override fun release() = Unit
         }
 
-        val session = RkMeetingSession(bridge)
+        val timeSource = object : TimeSource {
+            override fun nowMs(): Long = testScheduler.currentTime
+        }
+        val session = RkMeetingSession(
+            bridge = bridge,
+            timeSource = timeSource,
+            transcriptDispatcher = StandardTestDispatcher(testScheduler)
+        )
         session.prepare()
         session.start()
 
@@ -163,6 +196,8 @@ class RkMeetingSessionTranscriptTest {
         try {
             advanceTimeBy(20_000)
         } finally {
+            session.stop()
+            session.release()
             job.cancel()
         }
 

@@ -6,16 +6,46 @@ import com.edgemeeting.core.model.TranscriptSegment
 import com.edgemeeting.engine.bridge.AudioCallback
 import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineBridge
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 // 建構子注入 EngineBridge，這是 TDD 可測試性的關鍵！
 class RkMeetingSession(
-    private val bridge: EngineBridge
+    private val bridge: EngineBridge,
+    // 為了可測試地控制時間，預設用系統時間。
+    private val timeSource: TimeSource = object : TimeSource {
+        override fun nowMs(): Long = System.currentTimeMillis()
+    },
+    // 為了可替換字幕來源並在測試中可控，預設產生 Unknown 的段落。
+    private val transcriptGenerator: TranscriptGenerator = object : TranscriptGenerator {
+        override fun doGenerate(startTimeMs: Long, endTimeMs: Long): TranscriptSegment {
+            return TranscriptSegment(
+                id = "${startTimeMs}-${endTimeMs}",
+                text = "Transcript at ${startTimeMs}ms",
+                speakerId = "Unknown",
+                isFinal = true,
+                startTimeMs = startTimeMs,
+                endTimeMs = endTimeMs
+            )
+        }
+    },
+    // 為了在測試中使用 TestDispatcher 控制時間。
+    private val transcriptDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : MeetingSession {
+    private val transcriptScope = CoroutineScope(SupervisorJob() + transcriptDispatcher)
+    private var transcriptJob: Job? = null
 
     init {
         // 註冊 Callback
@@ -34,8 +64,41 @@ class RkMeetingSession(
     private val _state = MutableStateFlow<MeetingState>(MeetingState.Idle)
     override val state: StateFlow<MeetingState> = _state.asStateFlow()
 
-    // 資料流 (暫時留空)
-    override val transcriptFlow: Flow<List<TranscriptSegment>> = emptyFlow()
+    // 資料流：用緩衝避免產出端被 UI 訂閱速度拖慢
+    private val transcriptFlowInternal = MutableSharedFlow<List<TranscriptSegment>>(
+        extraBufferCapacity = 1
+    )
+    override val transcriptFlow: Flow<List<TranscriptSegment>> = transcriptFlowInternal.asSharedFlow()
+
+    private fun startTranscriptLoop(emit: suspend (List<TranscriptSegment>) -> Unit) {
+        if (transcriptJob?.isActive == true) {
+            return
+        }
+
+        transcriptJob = transcriptScope.launch {
+            val baseMs = timeSource.nowMs()
+            var lastEmitMs = baseMs
+
+            while (isActive) {
+                val nowMs = timeSource.nowMs()
+                val relativeStart = lastEmitMs - baseMs
+                val relativeEnd = nowMs - baseMs
+
+                val segment = try {
+                    transcriptGenerator.generate(relativeStart, relativeEnd)
+                } catch (error: Throwable) {
+                    android.util.Log.e("TRANSCRIPT_LOOP", "Generate failed", error)
+                    lastEmitMs = nowMs
+                    delay(1_000)
+                    continue
+                }
+
+                emit(listOf(segment))
+                lastEmitMs = nowMs
+                delay(1_000)
+            }
+        }
+    }
 
     override fun prepare() {
 // 1. 先通知 UI 我們正在忙 (顯示轉圈圈)
@@ -67,6 +130,14 @@ class RkMeetingSession(
             // 2. 呼叫 JNI
             bridge.startRecording()
 
+            // 2.5 啟動字幕輸出（只在 Listening 狀態下應該有輸出）
+            startTranscriptLoop { segments ->
+                val emitted = transcriptFlowInternal.tryEmit(segments)
+                if (!emitted) {
+                    android.util.Log.w("TRANSCRIPT_FLOW", "Drop transcript emission")
+                }
+            }
+
             // 3. 更新狀態
             _state.value = MeetingState.Listening
         }
@@ -78,12 +149,20 @@ class RkMeetingSession(
 
             bridge.stopRecording()
 
+            // 停止字幕輸出
+            transcriptJob?.cancel()
+            transcriptJob = null
+
             // 更新狀態 (回到 Ready)
             _state.value = MeetingState.Ready
         }
     }
 
     override fun release() {
+        // 釋放前先停止字幕輸出，避免背景協程持續跑
+        transcriptJob?.cancel()
+        transcriptJob = null
+
         bridge.release()
         _state.value = MeetingState.Idle
     }

@@ -20,6 +20,17 @@
 - 新增停止後 2 秒內不再輸出字幕的單元測試。
 - 新增字幕欄位完整性與時間遞增的單元測試。
 - 新增更新間隔 95% 不超過 1.5 秒的單元測試。
+- 在 `RkMeetingSession` 新增可注入的 `timeSource`。
+- 在 `RkMeetingSession` 新增可注入的 `transcriptGenerator`。
+- 在 `RkMeetingSession` 新增每秒字幕輸出 loop。
+- 在 `RkMeetingSession` 實作 `transcriptFlow` 緩衝策略（SharedFlow）。
+- 在 `RkMeetingSession.start()` 啟動字幕輸出。
+- 在 `RkMeetingSession.stop()` 停止字幕輸出。
+- 在 `RkMeetingSession.release()` 清理字幕輸出。
+- 讓 `RkMeetingSession` 可注入 Dispatcher 以支援測試虛擬時間。
+- 修正更新間隔測試，結束時停止並釋放 session。
+- 修正字幕節奏測試，結束時停止並釋放 session。
+- 修正欄位完整性測試，結束時停止並釋放 session。
 
 ## [2026-01-09]
 
