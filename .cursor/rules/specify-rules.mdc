@@ -1,0 +1,29 @@
+# EdgeMeetingSDK Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2026-01-16
+
+## Active Technologies
+
+- Kotlin (JVM 11), C++17 (NDK) + Kotlin Coroutines, AndroidX, Oboe (001-mvp-transcript-flow)
+
+## Project Structure
+
+```text
+src/
+tests/
+```
+
+## Commands
+
+# Add commands for Kotlin (JVM 11), C++17 (NDK)
+
+## Code Style
+
+Kotlin (JVM 11), C++17 (NDK): Follow standard conventions
+
+## Recent Changes
+
+- 001-mvp-transcript-flow: Added Kotlin (JVM 11), C++17 (NDK) + Kotlin Coroutines, AndroidX, Oboe
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->
