@@ -86,12 +86,12 @@
 
 ### Tests for User Story 3 (REQUIRED) ⚠️
 
-- [ ] T023 [US3][RED] 建立長時間穩定性測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionStabilityTest.kt`）
+- [x] T023 [US3][RED] 建立長時間穩定性測試（`meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionStabilityTest.kt`）
 
 ### Implementation for User Story 3
 
-- [ ] T024 [US3][GREEN] 最小修改讓穩定性測試轉綠（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
-- [ ] T025 [US3][REFACTOR] 清理長時間運行的釋放與取消流程（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [x] T024 [US3][GREEN] 最小修改讓穩定性測試轉綠（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
+- [x] T025 [US3][REFACTOR] 清理長時間運行的釋放與取消流程（單一函式變更）（`meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`）
 
 **Checkpoint**: All user stories are independently functional
 

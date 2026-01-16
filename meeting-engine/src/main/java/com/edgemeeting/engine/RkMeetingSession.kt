@@ -46,6 +46,11 @@ class RkMeetingSession(
 ) : MeetingSession {
     private val transcriptScope = CoroutineScope(SupervisorJob() + transcriptDispatcher)
     private var transcriptJob: Job? = null
+    private fun stopTranscriptLoop() {
+        // 統一停止與清理，避免重複邏輯分散
+        transcriptJob?.cancel()
+        transcriptJob = null
+    }
 
     init {
         // 註冊 Callback
@@ -155,8 +160,7 @@ class RkMeetingSession(
             bridge.stopRecording()
 
             // 停止字幕輸出
-            transcriptJob?.cancel()
-            transcriptJob = null
+            stopTranscriptLoop()
 
             // 更新狀態 (回到 Ready)
             _state.value = MeetingState.Ready
@@ -165,8 +169,7 @@ class RkMeetingSession(
 
     override fun release() {
         // 釋放前先停止字幕輸出，避免背景協程持續跑
-        transcriptJob?.cancel()
-        transcriptJob = null
+        stopTranscriptLoop()
 
         bridge.release()
         _state.value = MeetingState.Idle

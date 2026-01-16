@@ -40,6 +40,9 @@
 - 新增準備失敗時回報錯誤的測試。
 - `prepare()` 目前已符合準備失敗錯誤測試需求，標記為 GREEN。
 - 清理 `prepare()` 註解與縮排。
+- 新增 10 分鐘穩定性測試。
+- `RkMeetingSession` 已符合穩定性測試需求，標記為 GREEN。
+- 抽出 `stopTranscriptLoop()` 統一清理流程。
 
 ## [2026-01-09]
 
