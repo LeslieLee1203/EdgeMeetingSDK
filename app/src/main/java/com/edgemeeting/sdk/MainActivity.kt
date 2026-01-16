@@ -22,6 +22,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +73,7 @@ fun MeetingScreen(
 
     // 用於發動非同步操作 (雖然 prepare 目前是同步的，但好習慣還是要有)
     val scope = rememberCoroutineScope()
+    val transcriptItems = remember { mutableStateListOf<com.edgemeeting.core.model.TranscriptSegment>() }
 
     // --- 權限處理邏輯 ---
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -86,6 +89,17 @@ fun MeetingScreen(
     // 當 UI 顯示時，自動檢查並請求權限
     LaunchedEffect(Unit) {
         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    // 收集字幕流，將最新段落追加到列表
+    LaunchedEffect(session) {
+        try {
+            session.transcriptFlow.collect { segments ->
+                segments.forEach { transcriptItems.add(it) }
+            }
+        } catch (error: Throwable) {
+            Log.e("App", "Collect transcript failed", error)
+        }
     }
 
     Column(
@@ -108,6 +122,23 @@ fun MeetingScreen(
         StateIndicator(state = meetingState)
 
         Spacer(modifier = Modifier.height(32.dp))
+
+        // 3.1 字幕顯示（取最後幾段避免擠滿畫面）
+        val recentSegments = transcriptItems.takeLast(5)
+        if (recentSegments.isNotEmpty()) {
+            Text(
+                text = "Transcripts:",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            recentSegments.forEach { segment ->
+                Text(
+                    text = "[${segment.startTimeMs}-${segment.endTimeMs}] ${segment.text}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
 
         // 4. 操作按鈕：Prepare
         // 點擊後會呼叫 C++ JNI，若成功，狀態應變為 Ready

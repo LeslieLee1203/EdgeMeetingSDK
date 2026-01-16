@@ -43,6 +43,8 @@
 - 新增 10 分鐘穩定性測試。
 - `RkMeetingSession` 已符合穩定性測試需求，標記為 GREEN。
 - 抽出 `stopTranscriptLoop()` 統一清理流程。
+- 更新 quickstart 驗收項目，補上錯誤狀態檢查。
+- Demo App 開始收集並顯示字幕流。
 
 ## [2026-01-09]
 

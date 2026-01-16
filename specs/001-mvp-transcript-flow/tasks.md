@@ -101,8 +101,8 @@
 
 **Purpose**: 文件與驗證
 
-- [ ] T026 更新 quickstart 驗證步驟（`specs/001-mvp-transcript-flow/quickstart.md`）
-- [ ] T027 更新 CHANGELOG（`CHANGELOG.md`）
+- [x] T026 更新 quickstart 驗證步驟（`specs/001-mvp-transcript-flow/quickstart.md`）
+- [x] T027 更新 CHANGELOG（`CHANGELOG.md`）
 
 ---
 
