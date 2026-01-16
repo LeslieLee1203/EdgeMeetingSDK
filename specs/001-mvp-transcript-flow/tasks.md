@@ -18,9 +18,9 @@
 
 **Purpose**: 共用基礎，需先完成再進行 User Story
 
-- [ ] T003 定義測試用假時間來源介面（`meeting-engine/src/main/java/com/edgemeeting/engine/TimeSource.kt`）
-- [ ] T004 建立測試用假時間來源實作（`meeting-engine/src/test/java/com/edgemeeting/engine/FakeTimeSource.kt`）
-- [ ] T005 建立可控的假字幕產生器介面（`meeting-engine/src/main/java/com/edgemeeting/engine/TranscriptGenerator.kt`）
+- [x] T003 定義測試用假時間來源介面（`meeting-engine/src/main/java/com/edgemeeting/engine/TimeSource.kt`）
+- [x] T004 建立測試用假時間來源實作（`meeting-engine/src/test/java/com/edgemeeting/engine/FakeTimeSource.kt`）
+- [x] T005 建立可控的假字幕產生器介面（`meeting-engine/src/main/java/com/edgemeeting/engine/TranscriptGenerator.kt`）
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
