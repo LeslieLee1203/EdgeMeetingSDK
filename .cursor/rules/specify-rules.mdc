@@ -3,6 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2026-01-16
 
 ## Active Technologies
+- Kotlin 2.3.0、C++17 + Kotlin Coroutines/Flow、Oboe 1.10.0、JNI (001-add-asr-jni-path)
+- N/A（Phase 1 不持久化字幕） (001-add-asr-jni-path)
 
 - Kotlin (JVM 11), C++17 (NDK) + Kotlin Coroutines, AndroidX, Oboe (001-mvp-transcript-flow)
 
@@ -22,6 +24,7 @@ tests/
 Kotlin (JVM 11), C++17 (NDK): Follow standard conventions
 
 ## Recent Changes
+- 001-add-asr-jni-path: Added Kotlin 2.3.0、C++17 + Kotlin Coroutines/Flow、Oboe 1.10.0、JNI
 
 - 001-mvp-transcript-flow: Added Kotlin (JVM 11), C++17 (NDK) + Kotlin Coroutines, AndroidX, Oboe
 

@@ -1,0 +1,111 @@
+openapi: 3.0.3
+info:
+  title: Meeting Session Control API (Conceptual)
+  version: 1.0.0
+paths:
+  /meeting/prepare:
+    post:
+      summary: Prepare ASR resources
+      responses:
+        "200":
+          description: Ready to start
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingState"
+        "400":
+          description: Preparation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /meeting/start:
+    post:
+      summary: Start recording and transcript stream
+      responses:
+        "200":
+          description: Listening
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingState"
+        "400":
+          description: Start rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /meeting/stop:
+    post:
+      summary: Stop recording and transcript stream
+      responses:
+        "200":
+          description: Stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingState"
+        "400":
+          description: Stop rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /meeting/transcripts/stream:
+    get:
+      summary: Stream transcript segments (silence yields no events)
+      responses:
+        "200":
+          description: Stream of transcript segments
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/TranscriptSegmentBatch"
+components:
+  schemas:
+    MeetingState:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: [Idle, Preparing, Ready, Listening, Error]
+        message:
+          type: string
+      required: [state]
+    TranscriptSegmentBatch:
+      type: object
+      properties:
+        segments:
+          type: array
+          items:
+            $ref: "#/components/schemas/TranscriptSegment"
+      required: [segments]
+    TranscriptSegment:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        speakerId:
+          type: string
+          enum: [Unknown]
+        startTimeMs:
+          type: integer
+          format: int64
+        endTimeMs:
+          type: integer
+          format: int64
+        isFinal:
+          type: boolean
+          enum: [true]
+      required: [id, text, speakerId, startTimeMs, endTimeMs, isFinal]
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Single generic error code
+        message:
+          type: string
+      required: [code, message]

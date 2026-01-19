@@ -4,6 +4,7 @@
 
 ### 新增
 - 建立 Phase 1 真實字幕流（ASR）規格草案與需求檢核清單（`specs/001-add-asr-jni-path/`）。
+- 新增 Phase 1 計畫產物：`plan.md`、`research.md`、`data-model.md`、`quickstart.md`、`contracts/meeting-session.yaml`。
 
 ### 調整
 - 補充規格：靜音期間不輸出字幕段落。
@@ -11,6 +12,7 @@
 - 補充規格：錯誤碼採單一通用碼，訊息可區分原因。
 - 補充規格：辨識失敗略過當下片段並持續輸出。
 - 補充規格：Phase 1 不持久化字幕資料。
+- 更新 Cursor agent context（`/.cursor/rules/specify-rules.mdc`）。
 
 ## [2026-01-16]
 
