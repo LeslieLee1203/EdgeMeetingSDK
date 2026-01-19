@@ -45,6 +45,7 @@
 - 抽出 `stopTranscriptLoop()` 統一清理流程。
 - 更新 quickstart 驗收項目，補上錯誤狀態檢查。
 - Demo App 開始收集並顯示字幕流。
+- 新增 Phase 0 MVP 字幕流工作紀錄。
 
 ## [2026-01-09]
 
