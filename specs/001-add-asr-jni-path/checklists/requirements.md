@@ -1,8 +1,8 @@
-# Specification Quality Checklist: Phase 0 MVP 字幕流
+# Specification Quality Checklist: Phase 1 真實字幕流（ASR）
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning  
-**Created**: 2026-01-16  
-**Feature**: [spec.md](../spec.md)
+**Created**: 2026-01-19  
+**Feature**: `../spec.md`
 
 ## Content Quality
 
@@ -31,4 +31,4 @@
 
 ## Notes
 
-- Validation completed on 2026-01-16
+- Items marked incomplete require spec updates before `/speckit.clarify` or `/speckit.plan`
