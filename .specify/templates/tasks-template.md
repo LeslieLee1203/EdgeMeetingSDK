@@ -8,7 +8,7 @@ description: "Task list template for feature implementation"
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: The examples below include test tasks. Tests are REQUIRED - always include them and follow TDD.
+**Tests**: The examples below include test tasks. Tests are REQUIRED - always include them and follow TDD (RED → GREEN → REFACTOR).
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -81,7 +81,7 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Tests for User Story 1 (REQUIRED) ⚠️
 
-> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+> **NOTE: RED → GREEN → REFACTOR（先寫測試失敗 → 最小實作通過 → 重構）**
 
 - [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
@@ -178,7 +178,7 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Within Each User Story
 
-- Tests MUST be written and FAIL before implementation
+- Tests MUST follow RED → GREEN → REFACTOR
 - 先用註解說明「為什麼要這樣做」，再寫程式碼
 - 每次變更只包含一個 function 或一段程式碼
 - Models before services

@@ -31,7 +31,7 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- 測試先行 (TDD)：先寫測試且確認失敗，再進行最小實作
+- 測試先行 (TDD)：RED → GREEN → REFACTOR（先寫測試失敗 → 最小實作通過 → 重構）
 - 先註解說明「為什麼要這樣做」，再寫程式碼
 - 每次輸出一個 function 或一段程式碼，需經驗證才能前進
 - UI/UX 一致性：使用既有元件與樣式，避免未定義行為

@@ -5,6 +5,13 @@
 ### 新增
 - 建立 Phase 1 真實字幕流（ASR）規格草案與需求檢核清單（`specs/001-add-asr-jni-path/`）。
 - 新增 Phase 1 計畫產物：`plan.md`、`research.md`、`data-model.md`、`quickstart.md`、`contracts/meeting-session.yaml`。
+- 新增 Phase 1 任務拆解：`specs/001-add-asr-jni-path/tasks.md`。
+
+### 調整
+- 重新切分 Phase 1 任務，符合 TDD 單一函式/區塊粒度。
+- 移除 tasks.md 重複清單區塊。
+- 更新專案憲章與計畫/任務文件，補上 TDD 完整循環（RED → GREEN → REFACTOR）。
+- 更新 Speckit 模板以對齊 TDD 完整循環。
 
 ### 調整
 - 補充規格：靜音期間不輸出字幕段落。

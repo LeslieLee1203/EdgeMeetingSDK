@@ -1,15 +1,14 @@
 <!--
 Sync Impact Report
-- 版本變更: 未定義 → 1.0.0
-- 原則變更: 新增「程式碼品質與可讀性」「測試先行與 TDD 紀律」「使用者體驗一致性」「效能預算與資源控制」
-- 新增章節: 開發流程要求、品質門檻與驗證
+- 版本變更: 1.0.0 → 1.0.1
+- 原則變更: 更新「測試先行與 TDD 紀律」內容（補上 RED → GREEN → REFACTOR）
+- 新增章節: 無
 - 移除章節: 無
 - Templates requiring updates:
   - ✅ .specify/templates/plan-template.md
-  - ✅ .specify/templates/spec-template.md
   - ✅ .specify/templates/tasks-template.md
-  - ✅ .specify/templates/checklist-template.md
-  - ⚠ .specify/templates/commands/*.md（找不到路徑）
+  - ⚠ .cursor/commands/speckit.tasks.md（權限不足，需手動更新）
+  - ⚠ .cursor/commands/speckit.implement.md（權限不足，需手動更新）
 - Follow-up TODOs:
   - TODO(RATIFICATION_DATE): 尚未提供原始採納日期
 -->
@@ -22,7 +21,7 @@ Sync Impact Report
 所有程式碼與建議必須包含錯誤處理與明確失敗路徑。
 
 ### 測試先行與 TDD 紀律
-TDD 為強制流程：先寫測試且必須失敗，再進行最小實作。
+TDD 為強制流程：RED → GREEN → REFACTOR（先寫測試且必須失敗，再以最小實作通過測試，最後重構。小步快跑。）。
 產出程式碼前必須先以註解說明「為什麼要這樣做」，再寫程式碼。
 每次只允許輸出一個 function 或一段程式碼，需經使用者驗證後才能繼續。
 
@@ -35,7 +34,7 @@ UI/UX 必須與既有設計語言與互動模式一致。
 不得引入無必要的記憶體、CPU 或 I/O 開銷，需有可量化的理由。
 
 ## 開發流程要求
-1. 先寫測試並確認失敗，再進行最小實作（TDD 小步快跑）。
+1. TDD 完整循環：RED → GREEN → REFACTOR（先寫測試失敗 → 最小實作通過 → 重構）。
 2. 實作前先用註解說明理由，再撰寫程式碼。
 3. 每次變更只包含一個 function 或一段程式碼，通過驗證再前進。
 4. 所有變更需維持錯誤處理與可回復性。
@@ -51,4 +50,4 @@ UI/UX 必須與既有設計語言與互動模式一致。
 - 版本採語意化版本：破壞性變更升 MAJOR；新增原則或章節升 MINOR；文字澄清升 PATCH。
 - 每次計畫、規格與任務文件需檢核憲章條款的符合性。
 
-**Version**: 1.0.0 | **Ratified**: TODO(RATIFICATION_DATE): 尚未提供原始採納日期 | **Last Amended**: 2026-01-16
+**Version**: 1.0.1 | **Ratified**: TODO(RATIFICATION_DATE): 尚未提供原始採納日期 | **Last Amended**: 2026-01-19
