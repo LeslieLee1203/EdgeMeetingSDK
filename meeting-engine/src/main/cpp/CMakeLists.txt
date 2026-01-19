@@ -20,6 +20,8 @@ add_library(
         AudioRecorder.h
         AudioProcessor.cpp
         AudioProcessor.h
+        WhisperRunner.cpp
+        WhisperRunner.h
 )
 
 # 3. 連結 Library

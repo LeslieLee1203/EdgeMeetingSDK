@@ -22,10 +22,12 @@
 #include <android/log.h>
 #include "AudioRecorder.h"
 #include "AudioProcessor.h"
+#include "WhisperRunner.h"
 
 // 全域指標 (MVP 階段暫時做法)
 static std::unique_ptr<AudioRecorder> gRecorder = nullptr;
 static std::unique_ptr<AudioProcessor> gProcessor = nullptr;
+static WhisperRunner gWhisper;
 static JavaVM* gJavaVM = nullptr; // 儲存 JVM 指標
 
 extern "C" {
@@ -45,6 +47,71 @@ Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeInit(
     // MVP: 這裡還不載入模型，只確認路徑
     // 這裡也不需要初始化 Recorder，因為 Oboe 建議在 Start 時再 open stream
     return 0; // Success
+}
+
+JNIEXPORT jint JNICALL
+Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeInitAsr(
+        JNIEnv* env,
+        jobject,
+        jstring encoderPath,
+        jstring decoderPath) {
+    if (encoderPath == nullptr || decoderPath == nullptr) {
+        return 1;
+    }
+
+    const char* encoderChars = env->GetStringUTFChars(encoderPath, nullptr);
+    const char* decoderChars = env->GetStringUTFChars(decoderPath, nullptr);
+    if (encoderChars == nullptr || decoderChars == nullptr) {
+        if (encoderChars != nullptr) env->ReleaseStringUTFChars(encoderPath, encoderChars);
+        if (decoderChars != nullptr) env->ReleaseStringUTFChars(decoderPath, decoderChars);
+        return 1;
+    }
+
+    std::string encoderStr(encoderChars);
+    std::string decoderStr(decoderChars);
+    env->ReleaseStringUTFChars(encoderPath, encoderChars);
+    env->ReleaseStringUTFChars(decoderPath, decoderChars);
+
+    return gWhisper.init(encoderStr, decoderStr);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativePushPcm(
+        JNIEnv* env,
+        jobject,
+        jfloatArray data,
+        jint sampleRate) {
+    if (data == nullptr || sampleRate <= 0) {
+        return 1;
+    }
+
+    const jsize length = env->GetArrayLength(data);
+    if (length <= 0) {
+        return 1;
+    }
+
+    jfloat* elements = env->GetFloatArrayElements(data, nullptr);
+    if (elements == nullptr) {
+        return 1;
+    }
+
+    const int result = gWhisper.acceptPcm(elements, static_cast<int>(length), sampleRate);
+    env->ReleaseFloatArrayElements(data, elements, JNI_ABORT);
+    return result;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeFlushAsr(
+        JNIEnv* env,
+        jobject) {
+    return gWhisper.flush();
+}
+
+JNIEXPORT jint JNICALL
+Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeStopAsr(
+        JNIEnv* env,
+        jobject) {
+    return gWhisper.stop();
 }
 
 // 2. 新增：設定 Callback

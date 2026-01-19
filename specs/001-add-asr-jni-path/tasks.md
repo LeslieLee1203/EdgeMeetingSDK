@@ -20,28 +20,28 @@
 
 **Purpose**: 所有 user story 共用的核心基礎
 
-- [ ] T005 [P] 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineBridge.kt` 新增 `initAsr()` 宣告
-- [ ] T006 [P] 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineBridge.kt` 新增 `pushPcm()` 宣告
-- [ ] T007 [P] 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineBridge.kt` 新增 `flushAsr()` 宣告
-- [ ] T008 [P] 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineBridge.kt` 新增 `stopAsr()` 宣告
-- [ ] T009 [P] 在 `meeting-engine/src/test/java/com/edgemeeting/engine/fakes/FakeEngineBridge.kt` 實作 `initAsr()` stub
-- [ ] T010 [P] 在 `meeting-engine/src/test/java/com/edgemeeting/engine/fakes/FakeEngineBridge.kt` 實作 `pushPcm()` stub
-- [ ] T011 [P] 在 `meeting-engine/src/test/java/com/edgemeeting/engine/fakes/FakeEngineBridge.kt` 實作 `flushAsr()` stub
-- [ ] T012 [P] 在 `meeting-engine/src/test/java/com/edgemeeting/engine/fakes/FakeEngineBridge.kt` 實作 `stopAsr()` stub
-- [ ] T013 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/JniEngineBridge.kt` 新增 `initAsr()` wrapper
-- [ ] T014 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/JniEngineBridge.kt` 新增 `pushPcm()` wrapper
-- [ ] T015 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/JniEngineBridge.kt` 新增 `flushAsr()` wrapper
-- [ ] T016 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/JniEngineBridge.kt` 新增 `stopAsr()` wrapper
-- [ ] T017 在 `meeting-engine/src/main/cpp/WhisperRunner.h` 新增 `WhisperRunner` 類別宣告
-- [ ] T018 在 `meeting-engine/src/main/cpp/WhisperRunner.cpp` 實作 `WhisperRunner::init`
-- [ ] T019 在 `meeting-engine/src/main/cpp/WhisperRunner.cpp` 實作 `WhisperRunner::acceptPcm`
-- [ ] T020 在 `meeting-engine/src/main/cpp/WhisperRunner.cpp` 實作 `WhisperRunner::flush`
-- [ ] T021 在 `meeting-engine/src/main/cpp/WhisperRunner.cpp` 實作 `WhisperRunner::stop`
-- [ ] T022 在 `meeting-engine/src/main/cpp/native-lib.cpp` 新增 `nativeInitAsr` JNI 綁定
-- [ ] T023 在 `meeting-engine/src/main/cpp/native-lib.cpp` 新增 `nativePushPcm` JNI 綁定
-- [ ] T024 在 `meeting-engine/src/main/cpp/native-lib.cpp` 新增 `nativeFlushAsr` JNI 綁定
-- [ ] T025 在 `meeting-engine/src/main/cpp/native-lib.cpp` 新增 `nativeStopAsr` JNI 綁定
-- [ ] T026 在 `meeting-engine/src/main/cpp/CMakeLists.txt` 加入 `WhisperRunner.cpp`
+- [x] T005 [P] 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineBridge.kt` 新增 `initAsr()` 宣告
+- [x] T006 [P] 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineBridge.kt` 新增 `pushPcm()` 宣告
+- [x] T007 [P] 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineBridge.kt` 新增 `flushAsr()` 宣告
+- [x] T008 [P] 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineBridge.kt` 新增 `stopAsr()` 宣告
+- [x] T009 [P] 在 `meeting-engine/src/test/java/com/edgemeeting/engine/fakes/FakeEngineBridge.kt` 實作 `initAsr()` stub
+- [x] T010 [P] 在 `meeting-engine/src/test/java/com/edgemeeting/engine/fakes/FakeEngineBridge.kt` 實作 `pushPcm()` stub
+- [x] T011 [P] 在 `meeting-engine/src/test/java/com/edgemeeting/engine/fakes/FakeEngineBridge.kt` 實作 `flushAsr()` stub
+- [x] T012 [P] 在 `meeting-engine/src/test/java/com/edgemeeting/engine/fakes/FakeEngineBridge.kt` 實作 `stopAsr()` stub
+- [x] T013 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/JniEngineBridge.kt` 新增 `initAsr()` wrapper
+- [x] T014 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/JniEngineBridge.kt` 新增 `pushPcm()` wrapper
+- [x] T015 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/JniEngineBridge.kt` 新增 `flushAsr()` wrapper
+- [x] T016 在 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/JniEngineBridge.kt` 新增 `stopAsr()` wrapper
+- [x] T017 在 `meeting-engine/src/main/cpp/WhisperRunner.h` 新增 `WhisperRunner` 類別宣告
+- [x] T018 在 `meeting-engine/src/main/cpp/WhisperRunner.cpp` 實作 `WhisperRunner::init`
+- [x] T019 在 `meeting-engine/src/main/cpp/WhisperRunner.cpp` 實作 `WhisperRunner::acceptPcm`
+- [x] T020 在 `meeting-engine/src/main/cpp/WhisperRunner.cpp` 實作 `WhisperRunner::flush`
+- [x] T021 在 `meeting-engine/src/main/cpp/WhisperRunner.cpp` 實作 `WhisperRunner::stop`
+- [x] T022 在 `meeting-engine/src/main/cpp/native-lib.cpp` 新增 `nativeInitAsr` JNI 綁定
+- [x] T023 在 `meeting-engine/src/main/cpp/native-lib.cpp` 新增 `nativePushPcm` JNI 綁定
+- [x] T024 在 `meeting-engine/src/main/cpp/native-lib.cpp` 新增 `nativeFlushAsr` JNI 綁定
+- [x] T025 在 `meeting-engine/src/main/cpp/native-lib.cpp` 新增 `nativeStopAsr` JNI 綁定
+- [x] T026 在 `meeting-engine/src/main/cpp/CMakeLists.txt` 加入 `WhisperRunner.cpp`
 
 **Checkpoint**: 基礎完成後才能進入各 User Story
 

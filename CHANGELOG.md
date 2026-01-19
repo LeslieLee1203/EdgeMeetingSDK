@@ -14,6 +14,28 @@
 - 新增測試用 1 秒語音 PCM 產生器（`PcmFixtures.kt`）。
 - 新增字幕空結果斷言（`TranscriptAssertions.kt`）。
 - 新增字幕欄位斷言（`TranscriptAssertions.kt`）。
+- 新增 `EngineBridge.initAsr()` 介面宣告。
+- 新增 `EngineBridge.pushPcm()` 介面宣告。
+- 新增 `EngineBridge.flushAsr()` 介面宣告。
+- 新增 `EngineBridge.stopAsr()` 介面宣告。
+- 新增測試用 `FakeEngineBridge.initAsr()` stub。
+- 新增測試用 `FakeEngineBridge.pushPcm()` stub。
+- 新增測試用 `FakeEngineBridge.flushAsr()` stub。
+- 新增測試用 `FakeEngineBridge.stopAsr()` stub。
+- 新增 `JniEngineBridge.initAsr()` wrapper 與輸入檢查。
+- 新增 `JniEngineBridge.pushPcm()` wrapper 與輸入檢查。
+- 新增 `JniEngineBridge.flushAsr()` wrapper。
+- 新增 `JniEngineBridge.stopAsr()` wrapper。
+- 新增 `WhisperRunner` C++ 介面宣告。
+- 新增 `WhisperRunner::init` 最小實作與參數檢查。
+- 新增 `WhisperRunner::acceptPcm` 最小實作與參數檢查。
+- 新增 `WhisperRunner::flush` 最小實作。
+- 新增 `WhisperRunner::stop` 最小實作。
+- 新增 `nativeInitAsr` JNI 綁定。
+- 新增 `nativePushPcm` JNI 綁定。
+- 新增 `nativeFlushAsr` JNI 綁定。
+- 新增 `nativeStopAsr` JNI 綁定。
+- 將 `WhisperRunner.cpp/.h` 加入 CMake 原始檔清單。
 - 更新專案憲章與計畫/任務文件，補上 TDD 完整循環（RED → GREEN → REFACTOR）。
 - 更新 Speckit 模板以對齊 TDD 完整循環。
 
