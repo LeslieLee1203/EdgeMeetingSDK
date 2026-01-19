@@ -10,6 +10,10 @@
 ### 調整
 - 重新切分 Phase 1 任務，符合 TDD 單一函式/區塊粒度。
 - 移除 tasks.md 重複清單區塊。
+- 新增測試用 1 秒靜音 PCM 產生器（`PcmFixtures.kt`）。
+- 新增測試用 1 秒語音 PCM 產生器（`PcmFixtures.kt`）。
+- 新增字幕空結果斷言（`TranscriptAssertions.kt`）。
+- 新增字幕欄位斷言（`TranscriptAssertions.kt`）。
 - 更新專案憲章與計畫/任務文件，補上 TDD 完整循環（RED → GREEN → REFACTOR）。
 - 更新 Speckit 模板以對齊 TDD 完整循環。
 

@@ -9,10 +9,10 @@
 
 **Purpose**: 建立測試輔助，讓後續 TDD 快速落地
 
-- [ ] T001 建立 `pcm1s16kSilence()` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/fixtures/PcmFixtures.kt`
-- [ ] T002 建立 `pcm1s16kSpeech()` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/fixtures/PcmFixtures.kt`
-- [ ] T003 建立 `assertNoSegments()` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/fixtures/TranscriptAssertions.kt`
-- [ ] T004 建立 `assertSegmentFields()` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/fixtures/TranscriptAssertions.kt`
+- [x] T001 建立 `pcm1s16kSilence()` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/fixtures/PcmFixtures.kt`
+- [x] T002 建立 `pcm1s16kSpeech()` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/fixtures/PcmFixtures.kt`
+- [x] T003 建立 `assertNoSegments()` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/fixtures/TranscriptAssertions.kt`
+- [x] T004 建立 `assertSegmentFields()` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/fixtures/TranscriptAssertions.kt`
 
 ---
 
