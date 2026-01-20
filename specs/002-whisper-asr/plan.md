@@ -71,10 +71,11 @@ RkMeetingSession.transcriptFlow
 **Language/Version**: Kotlin 2.3.0、C++17 (NDK)  
 **Primary Dependencies**: Kotlin Coroutines、AndroidX、JNI、RKNN Runtime (`librknnrt.so`)  
 **Storage**: 檔案（`.rknn` 模型檔）  
-**Model Deployment**:
-- 模型檔路徑: `app/src/main/assets/models/whisper_encoder_base_20s.rknn`, `whisper_decoder_base_20s.rknn`
-- Runtime 路徑: `context.filesDir/models/` (app-specific, 不需額外權限)
+**Model Deployment**（SDK 自包含設計）:
+- 模型檔路徑: `meeting-engine/src/main/assets/models/whisper_encoder_base_20s.rknn`, `whisper_decoder_base_20s.rknn`
+- Runtime 路徑: `context.filesDir.absolutePath + "/models/"` (app-specific, 不需額外權限，傳給 C++ `rknn_init`)
 - Native 依賴: `meeting-engine/src/main/jniLibs/arm64-v8a/librknnrt.so`
+- 設計原則: SDK 使用者無需維護 assets 結構，`ModelAssetManager.ensureModels()` 自動處理
 
 **Testing**: JUnit、kotlinx-coroutines-test  
 **Target Platform**: Android 13-15 (API 33-36) on RK3588, arm64-v8a  

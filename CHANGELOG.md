@@ -2,6 +2,67 @@
 
 ## [2026-01-20]
 
+### 規格分析與修正（Specification Analysis）
+
+**CRITICAL 修正**
+- 新增 Phase 1.0 模型與原生依賴準備任務（T000a-T000c）
+  - T000a：取得 RKNN 模型檔（含來源選項與驗證標準）
+  - T000b：取得 RKNN Runtime Library（版本要求 >= 1.6.0）
+  - T000c：更新 quickstart.md 模型取得說明
+- 修正 T028a TDD 順序違規，補上 RED 階段測試任務
+  - T028a 改為 🔴 RED：測試 FakeAsrEngine 行為
+  - T028b 改為 🟢 GREEN：建立 FakeAsrEngine 實作
+  - 新增 T028c 🔵 REFACTOR：檢視 Fake 介面易用性
+
+**文件澄清**
+- `data-model.md`：補充 TranscriptionSession 實作澄清（由 MeetingState 涵蓋）
+
+### 架構優化（Specification Analysis）
+
+**SDK 自包含設計**
+- 將模型 assets 從 `app/src/main/assets/models/` 改至 `meeting-engine/src/main/assets/models/`
+- 設計原則：SDK 使用者無需維護 assets 結構，降低耦合度
+
+**Phase 1 重構**
+- 新增 T001-T002a：`ModelConstants.kt` TDD 任務（定義模型檔名、路徑常數）
+- 新增 T002b-T002e：檔案結構設置（`.gitkeep`、`.gitignore`、`quickstart.md` 更新）
+- 明確列出模型檔名：`whisper_encoder_base_20s.rknn`, `whisper_decoder_base_20s.rknn`
+
+**Phase 2 重構**
+- T017-T019 ModelAssetManager 改為引用 `ModelConstants`，不重複定義常數
+- 補充 Robolectric 測試資料準備策略（`src/test/resources/models/`）
+- 新增 Phase 2.7 C++ 測試基礎設施（T022a-T022c）：Google Test 框架設置提前至 Phase 2
+
+**Phase 3 調整**
+- T026 移除重複的 Google Test 設置，改為引用 Phase 2.7 完成的基礎設施
+
+**Phase 6 整併**
+- 移除與 Phase 1 重複的 `jniLibs` 說明任務
+- 重新編號 T072-T076
+
+**文件更新**
+- `plan.md`：更新 Model Deployment 路徑，標註 SDK 自包含設計
+- `data-model.md`：新增 `ModelConstants` 定義，補充 `ModelsReady.modelsDir` 用途說明
+
+### 架構優化（資深審查）
+- 新增 Phase 2.0 LanguageSetting（T003-T004a），解決 AsrConfig 依賴衝突。
+- 新增 T028a FakeAsrEngine，支援 Kotlin 層整合測試（無需 RKNN 硬體）。
+- 新增 T052a LeakCanary 整合任務，驗證記憶體穩定性。
+- 在 T017 標註 Robolectric 測試環境，確保 CI 可執行。
+- 在 T026 標註 Google Test 框架設置需求。
+- 在 T033 新增 RKNN context 資源釋放驗證。
+- 在 T038 補充靜音邊界測試案例（連續靜音、長時間語音）。
+- 在 T041 標註執行緒模型（native background thread）。
+- 在 T044-T046 新增 CoroutineDispatcher 注入說明。
+- 重新編號 Phase 4-6 任務（T055-T076），對齊 LanguageSetting 移動後的結構。
+
+### 調整
+- 合併 `tasks.md` Phase 1 任務 T001-T003 為 T001，簡化模型設置任務描述。
+- 新增路徑慣例區塊於 `tasks.md` Phase 1，明確定義 assets/runtime/native 路徑。
+- 擴充 `tasks.md` T017-T019 ModelAssetManager 任務描述，明確回傳型別 `Result<ModelsReady>`。
+- 擴充 `tasks.md` T043-T044 RkMeetingSession 整合任務，明確與 ModelAssetManager 的互動。
+- 新增 `data-model.md` ModelsReady 資料類別定義。
+
 ### 新增
 - 新增 Whisper ASR 整合規格與需求檢核清單（`specs/002-whisper-asr`）。
 - 新增模型部署策略：assets 打包 + 複製至 app-specific storage。

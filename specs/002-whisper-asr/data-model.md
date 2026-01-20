@@ -63,11 +63,48 @@ sealed class LanguageSetting {
 
 ## TranscriptionSession
 
+> **實作澄清**：此資料模型由既有 `MeetingState` sealed interface 涵蓋，
+> 不另建新類別。`lastErrorCode`/`lastErrorMessage` 對應 `MeetingState.Error` 的屬性。
+
 - **state**: `idle` | `preparing` | `ready` | `listening` | `error`
 - **startTimeMs**: 會議開始時間（毫秒）
 - **endTimeMs**: 會議結束時間（毫秒）
 - **lastErrorCode**: 錯誤碼（可選）
 - **lastErrorMessage**: 可讀錯誤訊息（可選）
+
+## ModelConstants
+
+模型相關常數，統一定義於 `meeting-engine`。
+
+```kotlin
+object ModelConstants {
+    const val ASSETS_MODEL_DIR = "models"
+    const val RUNTIME_MODEL_DIR = "models"
+    val EXPECTED_MODEL_FILES = listOf(
+        "whisper_encoder_base_20s.rknn",
+        "whisper_decoder_base_20s.rknn"
+    )
+}
+```
+
+> **設計原則**：避免在多處重複定義路徑常數，確保單一真相來源（Single Source of Truth）。
+
+## ModelsReady
+
+`ModelAssetManager.ensureModels()` 成功時的回傳值。
+
+```kotlin
+data class ModelsReady(
+    val modelsDir: File  // runtime 模型目錄絕對路徑
+)
+```
+
+- **modelsDir**: File（runtime 模型目錄，如 `context.filesDir.absolutePath + "/models/"`）
+
+> **設計考量**：
+> - 路徑由 `ModelAssetManager` 統一管理，使用 `ModelConstants` 常數
+> - Caller 只需使用回傳的 `modelsDir.absolutePath` 建立 `AsrConfig.Whisper`
+> - `modelsDir.absolutePath` 將傳遞給 C++ `rknn_init()` 作為模型載入路徑
 
 ## BridgeResult (sealed interface)
 

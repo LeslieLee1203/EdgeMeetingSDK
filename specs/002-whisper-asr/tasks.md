@@ -9,12 +9,62 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: 建立基本路徑與模型檔佈署規則
+**Purpose**: 建立模型路徑常數、檔案結構與 Native 依賴佈署規則
 
-- [ ] T001 更新模型檔放置說明到 `specs/002-whisper-asr/quickstart.md`
-- [ ] T002 確認 `.rknn` 模型與 `librknnrt.so` 佈署規則文件化於 `specs/002-whisper-asr/quickstart.md`
-- [ ] T003 定義模型路徑慣例：assets 打包路徑 `assets/models/`，runtime 路徑 `filesDir/models/`
-- [ ] T004 建立 `app/src/main/assets/models/.gitkeep` 佔位檔
+### 1.0 模型與原生依賴準備（前置作業）
+
+> **⚠️ 阻擋條件**：未完成此節，後續所有需要模型的任務無法執行。
+
+- [ ] T000a 📦 取得 RKNN 模型檔
+  - 來源選項（擇一）：
+    - 選項 A：從 [rknn-llm](https://github.com/airockchip/rknn-llm) 或 whisper.cpp RKNN export 取得預轉檔
+    - 選項 B：自行使用 `rknn-toolkit2` 轉換 whisper.cpp GGML 模型
+  - 目標檔案：
+    - `whisper_encoder_base_20s.rknn`
+    - `whisper_decoder_base_20s.rknn`
+  - 放置路徑：`meeting-engine/src/main/assets/models/`
+  - **驗證**：檔案大小 > 10MB，可被 `rknn_init()` 載入
+
+- [ ] T000b 📦 取得 RKNN Runtime Library
+  - 來源：[RKNN SDK releases](https://github.com/airockchip/rknn-toolkit2/releases)
+  - **版本要求**：`librknnrt.so` >= 1.6.0（對應 RK3588 NPU driver）
+  - 放置路徑：`meeting-engine/src/main/jniLibs/arm64-v8a/librknnrt.so`
+  - **驗證**：`file librknnrt.so` 顯示 `ELF 64-bit LSB shared object, ARM aarch64`
+
+- [ ] T000c 📝 更新 `quickstart.md` 模型取得說明
+  - 加入下載連結或轉換指令
+  - 加入版本相容性矩陣（RKNN SDK vs RK3588 BSP 版本）
+
+### 1.1 路徑常數與文件（TDD）
+
+- [ ] T001 🔴 RED: 測試 `ModelConstants` 常數於 `meeting-engine/src/test/java/com/edgemeeting/engine/ModelConstantsTest.kt`
+  - 測試：`EXPECTED_MODEL_FILES` 包含預期檔名
+  - 測試：`ASSETS_MODEL_DIR` = `"models"`
+  - 測試：`RUNTIME_MODEL_DIR` = `"models"`
+- [ ] T002 🟢 GREEN: 建立 `ModelConstants.kt` 於 `meeting-engine/src/main/java/com/edgemeeting/engine/ModelConstants.kt`
+  - `ASSETS_MODEL_DIR = "models"`
+  - `RUNTIME_MODEL_DIR = "models"`
+  - `EXPECTED_MODEL_FILES = listOf("whisper_encoder_base_20s.rknn", "whisper_decoder_base_20s.rknn")`
+- [ ] T002a 🔵 REFACTOR: 檢視常數命名與可擴充性
+
+### 1.2 檔案結構設置
+
+- [ ] T002b 建立 `meeting-engine/src/main/assets/models/.gitkeep` 佔位檔
+- [ ] T002c 建立 `meeting-engine/src/main/jniLibs/arm64-v8a/.gitkeep` 佔位檔
+- [ ] T002d 更新 `.gitignore`：忽略 `*.rknn` 與 `*.so`（避免大檔案進 repo）
+- [ ] T002e 更新 `specs/002-whisper-asr/quickstart.md`：
+  - 模型檔放置路徑：`meeting-engine/src/main/assets/models/*.rknn`
+  - Native 依賴路徑：`meeting-engine/src/main/jniLibs/arm64-v8a/librknnrt.so`
+  - 說明 Runtime 路徑由 `ModelAssetManager` 自動處理
+
+> **路徑慣例**（SDK 自包含設計）：
+> - Assets 打包路徑：`meeting-engine/src/main/assets/models/` ← SDK 模組內
+> - Runtime 路徑：`context.filesDir.absolutePath + "/models/"` ← 傳遞給 C++ `rknn_init`
+> - Native 依賴：`meeting-engine/src/main/jniLibs/arm64-v8a/librknnrt.so`
+>
+> **設計原則**：SDK 使用者無需維護 assets 結構，只需呼叫 `prepare()` 即可。
+
+> **Note**: T003-T004 原為 Phase 1 任務，現移至 Phase 2.0 供 LanguageSetting 使用。
 
 ---
 
@@ -24,9 +74,18 @@
 
 **⚠️ CRITICAL**: 未完成不可進入任何 User Story
 
+### 2.0 LanguageSetting 資料模型（TDD）
+
+> **Why first**: `AsrConfig.Whisper` 需要 `LanguageSetting` 作為參數，必須先定義。
+
+- [ ] T003 🔴 RED: 測試 `LanguageSetting`（Auto/Fixed）於 `meeting-core/src/test/java/com/edgemeeting/core/LanguageSettingTest.kt`
+- [ ] T004 🟢 GREEN: 建立 `LanguageSetting` sealed class 於 `meeting-core/src/main/java/com/edgemeeting/core/model/LanguageSetting.kt`
+- [ ] T004a 🔵 REFACTOR: 檢視語言代碼驗證（ISO 639-1 格式）
+
 ### 2.1 AsrConfig 資料模型（TDD）
 
 - [ ] T005 🔴 RED: 測試 `AsrConfig.Whisper` 建構與驗證於 `meeting-core/src/test/java/com/edgemeeting/core/AsrConfigTest.kt`
+  - 依賴：`LanguageSetting`（T004 完成後）
 - [ ] T006 🟢 GREEN: 建立 `AsrConfig` sealed class 於 `meeting-core/src/main/java/com/edgemeeting/core/model/AsrConfig.kt`
 - [ ] T007 🔵 REFACTOR: 檢視 sealed class 結構與命名
 
@@ -50,9 +109,23 @@
 
 ### 2.5 ModelAssetManager（TDD）
 
-- [ ] T017 🔴 RED: 測試 `ModelAssetManager.ensureModels` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/ModelAssetManagerTest.kt`
+> **測試環境**：使用 Robolectric 模擬 `AssetManager`，確保可在 CI 環境執行。
+> **測試資料準備**：在 `src/test/resources/models/` 放置空白測試檔（0 bytes）模擬 assets。
+
+- [ ] T017 🔴 RED: 測試 `ModelAssetManager.ensureModels(context): Result<ModelsReady>` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/ModelAssetManagerTest.kt`
+  - **前置**：設置 Robolectric test runner（`@RunWith(RobolectricTestRunner::class)`）
+  - **前置**：在 `src/test/resources/models/` 建立測試用假模型檔
+  - 測試：assets 存在時，複製至 `context.filesDir/models/` 並回傳 `ModelsReady(modelsDir)`
+  - 測試：assets 不存在時，回傳 `Result.Failure(ERR_MODEL_NOT_FOUND)`
+  - 測試：重複呼叫時跳過複製（檔案已存在）
+  - 測試：部分複製失敗時回傳錯誤並清理已複製檔案
+  - 測試：驗證使用 `ModelConstants.EXPECTED_MODEL_FILES` 檢查檔案完整性
 - [ ] T018 🟢 GREEN: 建立 `ModelAssetManager` 於 `meeting-engine/src/main/java/com/edgemeeting/engine/ModelAssetManager.kt`
-- [ ] T019 🔵 REFACTOR: 檢視錯誤處理與邊界情況
+  - 使用 `ModelConstants.ASSETS_MODEL_DIR` 與 `ModelConstants.RUNTIME_MODEL_DIR`（不重複定義）
+  - 使用 `ModelConstants.EXPECTED_MODEL_FILES` 檢查檔案完整性
+  - 實作 `ensureModels(context): Result<ModelsReady>`
+  - `data class ModelsReady(val modelsDir: File)` ← modelsDir 為傳給 C++ 的絕對路徑
+- [ ] T019 🔵 REFACTOR: 檢視錯誤處理與邊界情況（部分複製失敗、磁碟空間不足）
 
 ### 2.6 BridgeResult 錯誤碼（TDD）
 
@@ -60,7 +133,17 @@
 - [ ] T021 🟢 GREEN: 擴充 `BridgeResult` 錯誤碼於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/BridgeResult.kt`
 - [ ] T022 🔵 REFACTOR: 檢視錯誤碼命名與範圍
 
-**Checkpoint**: 統一介面基礎設施完成，可開始 User Story
+### 2.7 C++ 測試基礎設施
+
+> **Purpose**: Phase 3 的 C++ 單元測試需要 Google Test 框架，必須先完成設置。
+
+- [ ] T022a 設置 Google Test 框架於 `meeting-engine/src/main/cpp/CMakeLists.txt`
+  - 新增 `googletest` 作為 subdirectory 或 FetchContent
+  - 定義 `asr_tests` 測試目標
+- [ ] T022b 建立測試目錄結構 `meeting-engine/src/main/cpp/test/`
+- [ ] T022c 驗證：執行 `./gradlew :meeting-engine:testDebugUnitTest` 可跑 C++ 測試
+
+**Checkpoint**: 統一介面基礎設施與 C++ 測試環境完成，可開始 User Story
 
 ---
 
@@ -78,17 +161,38 @@
 
 ### 3.2 Native AsrEngine 抽象層（TDD）
 
-- [ ] T026 🔴 RED: 建立 `AsrEngine` 介面測試骨架（C++ mock）
+> **依賴**：T022a-T022c（Google Test 框架已在 Phase 2.7 完成設置）
+
+- [ ] T026 🔴 RED: 建立 `AsrEngine` 介面測試骨架於 `meeting-engine/src/main/cpp/test/AsrEngineTest.cpp`
+  - 使用 Google Test mock 驗證介面契約
 - [ ] T027 🟢 GREEN: 建立 `AsrEngine.h` 抽象類於 `meeting-engine/src/main/cpp/asr/AsrEngine.h`（含 init/start/pushAudio/stop/release）
 - [ ] T028 🔵 REFACTOR: 檢視介面最小化
 
+### 3.2a FakeAsrEngine for Kotlin Testing（TDD）
+
+> **Purpose**: 提供 Kotlin 層整合測試用的 Fake 實作，無需 RKNN 硬體即可在 CI 執行。
+
+- [ ] T028a 🔴 RED: 測試 `FakeAsrEngine` 行為於 `meeting-engine/src/test/java/com/edgemeeting/engine/fake/FakeAsrEngineTest.kt`
+  - 測試：注入 `TranscriptSegment` 後，`pushAudio()` 觸發 callback
+  - 測試：注入錯誤碼後，`init()` 回傳對應 `BridgeResult.Failure`
+  - 測試：呼叫順序驗證（init → start → stop → release）
+- [ ] T028b 🟢 GREEN: 建立 `FakeAsrEngine` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/fake/FakeAsrEngine.kt`
+  - 實作 `EngineBridge` 介面（Kotlin Fake，用於整合測試）
+  - 支援注入預設 `TranscriptSegment` 回傳序列
+  - 支援模擬錯誤情境（`ERR_MODEL_NOT_FOUND`, `ERR_MODEL_LOAD_FAILED`）
+  - 支援驗證 `init`/`start`/`stop`/`release` 呼叫順序
+- [ ] T028c 🔵 REFACTOR: 檢視 Fake 介面易用性與測試可讀性
+
 ### 3.3 WhisperAsrEngine 初始化與生命週期（TDD）
 
-- [ ] T029 🔴 RED: 測試 `WhisperAsrEngine.init` 載入模型於 C++ 單元測試
+- [ ] T029 🔴 RED: 測試 `WhisperAsrEngine.init` 載入模型於 C++ 單元測試（Google Test）
 - [ ] T030 🟢 GREEN: 實作 `WhisperAsrEngine.init` 於 `meeting-engine/src/main/cpp/asr/WhisperAsrEngine.cpp`
 - [ ] T031 🟢 GREEN: 實作 RKNN 模型載入於 `WhisperAsrEngine.cpp`
 - [ ] T032 🟢 GREEN: 實作 `WhisperAsrEngine.start`/`stop`（重置狀態/flush 剩餘音訊）
 - [ ] T033 🔵 REFACTOR: 檢視資源管理與錯誤處理
+  - 驗證 `release()` 正確釋放 RKNN context（rknn_destroy）
+  - 驗證重複 `release()` 不會 crash（防禦性檢查）
+  - 驗證 `init()` 後未 `release()` 的物件析構時自動清理
 
 ### 3.4 JNI ASR 整合（TDD）
 
@@ -99,18 +203,31 @@
 
 ### 3.5 音訊輸入與轉錄輸出（TDD）
 
-- [ ] T038 🔴 RED: 測試逐段分段規則（靜音 >= 700ms）於 `RkMeetingSessionTranscriptTest.kt`
+- [ ] T038 🔴 RED: 測試逐段分段規則於 `RkMeetingSessionTranscriptTest.kt`
+  - 測試：靜音 >= 700ms 時切段輸出
+  - 測試：靜音 < 700ms 時不切段，累積輸出
+  - 測試：連續 5 秒靜音不輸出空白段落（Edge Case）
+  - 測試：10 分鐘連續語音不 OOM（使用 FakeAsrEngine）
 - [ ] T039 🟢 GREEN: 實作 `WhisperAsrEngine.pushAudio` 於 `WhisperAsrEngine.cpp`
 - [ ] T040 🟢 GREEN: 實作靜音偵測與分段邏輯於 `WhisperAsrEngine.cpp`
 - [ ] T041 🟢 GREEN: 實作 JNI callback `onTranscript` 回傳於 `native-lib.cpp`
+  - **執行緒**：callback 在 native background thread 執行，Kotlin 層需轉發至 Main
 - [ ] T042 🔵 REFACTOR: 檢視音訊緩衝與記憶體使用
 
 ### 3.6 RkMeetingSession 整合（TDD）
 
-- [ ] T043 🔴 RED: 測試 `prepare()` 使用 `EngineConfig` 於 `RkMeetingSessionTest.kt`
-- [ ] T044 🟢 GREEN: 更新 `RkMeetingSession.prepare()` 使用 `EngineConfig`
+- [ ] T043 🔴 RED: 測試 `prepare()` 於 `RkMeetingSessionTest.kt`
+  - 測試：`prepare()` 呼叫 `ModelAssetManager.ensureModels()` 取得 modelsDir
+  - 測試：模型缺失時狀態轉為 `Error(ERR_MODEL_NOT_FOUND)`
+  - **使用 FakeAsrEngine**（T028a）進行測試
+- [ ] T044 🟢 GREEN: 更新 `RkMeetingSession.prepare()`
+  - 使用 `ModelAssetManager.ensureModels()` 回傳的路徑建立 `AsrConfig`
+  - 注入 `CoroutineDispatcher`（預設 `Dispatchers.Main`，測試時用 `TestDispatcher`）
 - [ ] T045 🟢 GREEN: 將 `onTranscript` 回調接入 `transcriptFlow`
+  - 使用 `withContext(mainDispatcher)` 確保 UI 安全
 - [ ] T046 🔵 REFACTOR: 檢視狀態轉換與執行緒安全
+  - 驗證 `transcriptFlow` emit 在正確的 Dispatcher
+  - 驗證多執行緒存取狀態的安全性
 
 ### 3.7 啟停轉錄流程（TDD）
 
@@ -118,25 +235,21 @@
 - [ ] T048 🟢 GREEN: 更新 `start()`/`stop()` 控制 ASR 引擎（呼叫 AsrEngine.start/stop）
 - [ ] T049 🔵 REFACTOR: 檢視生命週期管理
 
-### 3.8 效能與穩定性驗證（TDD）
+### 3.8 驗收測試（非 TDD）
 
-- [ ] T050 🔴 RED: 測試 2 秒內產出段落於 `RkMeetingSessionTranscriptTest.kt`
-- [ ] T051 🟢 GREEN: 調整實作以符合 2 秒產出要求
-- [ ] T052 🔵 REFACTOR: 效能瓶頸分析
+功能完成後執行驗收，若未達標則進行調優。
 
-- [ ] T053 🔴 RED: 測試 20 秒音訊 20 秒內完成
-- [ ] T054 🟢 GREEN: 確認即時處理能力
-- [ ] T055 🔵 REFACTOR: 處理延遲優化
+- [ ] T050 ✅ 驗收：2 秒內產出段落
+- [ ] T051 ✅ 驗收：20 秒音訊即時處理
+- [ ] T052 ✅ 驗收：30 分鐘穩定性（無崩潰、無記憶體洩漏）
+- [ ] T052a 🔧 整合 LeakCanary（debug build）驗證記憶體
+  - 驗證 `release()` 後無 native memory leak
+  - 驗證 30 分鐘後 heap 大小穩定（無持續增長）
+  - 使用 Android Profiler 或 `dumpsys meminfo` 量測
+- [ ] T053 ✅ 驗收：離線狀態仍可轉錄
+- [ ] T054 🔧 （若未達標）效能調優與問題修正
 
-- [ ] T056 🔴 RED: 測試 30 分鐘穩定性於 `RkMeetingSessionStabilityTest.kt`
-- [ ] T057 🟢 GREEN: 確認長時間穩定性
-- [ ] T058 🔵 REFACTOR: 記憶體洩漏檢查
-
-- [ ] T059 🔴 RED: 測試離線狀態仍可轉錄
-- [ ] T060 🟢 GREEN: 確認離線運作無網路依賴
-- [ ] T061 🔵 REFACTOR: 離線模式驗證
-
-**Checkpoint**: US1 可獨立運作並通過所有測試
+**Checkpoint**: US1 可獨立運作並通過所有驗收測試
 
 ---
 
@@ -146,24 +259,20 @@
 
 **Independent Test**: 在不同語言設定下可得到對應語言輸出
 
-### 4.1 LanguageSetting 資料模型（TDD）
+> **Note**: `LanguageSetting` 已在 Phase 2.0（T003-T004a）建立，此階段專注於語言設定傳遞與輸出。
 
-- [ ] T062 🔴 RED: 測試 `LanguageSetting`（auto/fixed mode）於 `LanguageSettingTest.kt`
-- [ ] T063 🟢 GREEN: 建立/更新 `LanguageSetting` 於 `meeting-core/src/main/java/com/edgemeeting/core/model/LanguageSetting.kt`
-- [ ] T064 🔵 REFACTOR: 檢視語言代碼驗證
+### 4.1 語言設定傳遞（TDD）
 
-### 4.2 語言設定傳遞（TDD）
+- [ ] T055 🔴 RED: 測試 `AsrConfig.Whisper` 語言設定傳遞於 `RkMeetingSessionTest.kt`
+- [ ] T056 🟢 GREEN: 實作語言設定從 `EngineConfig` 傳遞至 native
+- [ ] T057 🟢 GREEN: 實作 `WhisperAsrEngine` 語言設定處理
+- [ ] T058 🔵 REFACTOR: 檢視語言設定傳遞路徑
 
-- [ ] T065 🔴 RED: 測試 `AsrConfig.Whisper` 語言設定傳遞於 `RkMeetingSessionTest.kt`
-- [ ] T066 🟢 GREEN: 實作語言設定從 `EngineConfig` 傳遞至 native
-- [ ] T067 🟢 GREEN: 實作 `WhisperAsrEngine` 語言設定處理
-- [ ] T068 🔵 REFACTOR: 檢視語言設定傳遞路徑
+### 4.2 語言代碼輸出（TDD）
 
-### 4.3 語言代碼輸出（TDD）
-
-- [ ] T069 🔴 RED: 測試 `TranscriptSegment.languageCode` 正確輸出
-- [ ] T070 🟢 GREEN: 實作語言偵測結果回傳於 `WhisperAsrEngine.cpp`
-- [ ] T071 🔵 REFACTOR: 檢視語言代碼格式一致性
+- [ ] T059 🔴 RED: 測試 `TranscriptSegment.languageCode` 正確輸出
+- [ ] T060 🟢 GREEN: 實作語言偵測結果回傳於 `WhisperAsrEngine.cpp`
+- [ ] T061 🔵 REFACTOR: 檢視語言代碼格式一致性
 
 **Checkpoint**: US2 可獨立運作並通過所有測試
 
@@ -177,22 +286,22 @@
 
 ### 5.1 模型缺失錯誤（TDD）
 
-- [ ] T072 🔴 RED: 測試模型缺失時回傳 `ERR_MODEL_NOT_FOUND` 於 `RkMeetingSessionStateTest.kt`
-- [ ] T073 🟢 GREEN: 實作 `ModelAssetManager` 檔案存在檢查
-- [ ] T074 🟢 GREEN: 實作 native 模型缺失錯誤回傳
-- [ ] T075 🔵 REFACTOR: 檢視錯誤訊息可讀性
+- [ ] T062 🔴 RED: 測試模型缺失時回傳 `ERR_MODEL_NOT_FOUND` 於 `RkMeetingSessionStateTest.kt`
+- [ ] T063 🟢 GREEN: 實作 `ModelAssetManager` 檔案存在檢查
+- [ ] T064 🟢 GREEN: 實作 native 模型缺失錯誤回傳
+- [ ] T065 🔵 REFACTOR: 檢視錯誤訊息可讀性
 
 ### 5.2 模型載入失敗（TDD）
 
-- [ ] T076 🔴 RED: 測試模型損壞時回傳 `ERR_MODEL_LOAD_FAILED`
-- [ ] T077 🟢 GREEN: 實作 RKNN 載入錯誤捕獲於 `WhisperAsrEngine.cpp`
-- [ ] T078 🔵 REFACTOR: 檢視錯誤傳遞完整性
+- [ ] T066 🔴 RED: 測試模型損壞時回傳 `ERR_MODEL_LOAD_FAILED`
+- [ ] T067 🟢 GREEN: 實作 RKNN 載入錯誤捕獲於 `WhisperAsrEngine.cpp`
+- [ ] T068 🔵 REFACTOR: 檢視錯誤傳遞完整性
 
 ### 5.3 降級與恢復（TDD）
 
-- [ ] T079 🔴 RED: 測試錯誤後可重新 `prepare()` 恢復
-- [ ] T080 🟢 GREEN: 實作錯誤狀態可恢復邏輯於 `RkMeetingSession.kt`
-- [ ] T081 🔵 REFACTOR: 檢視狀態機完整性
+- [ ] T069 🔴 RED: 測試錯誤後可重新 `prepare()` 恢復
+- [ ] T070 🟢 GREEN: 實作錯誤狀態可恢復邏輯於 `RkMeetingSession.kt`
+- [ ] T071 🔵 REFACTOR: 檢視狀態機完整性
 
 **Checkpoint**: US3 可獨立運作並通過所有測試
 
@@ -202,11 +311,16 @@
 
 **Purpose**: 打包、效能與回歸驗證
 
-- [ ] T082 更新 CMake 連結 `librknnrt.so` 於 `meeting-engine/src/main/cpp/CMakeLists.txt`
-- [ ] T083 更新 Gradle ABI/打包規則於 `meeting-engine/build.gradle.kts`
-- [ ] T084 新增 `jniLibs/arm64-v8a` 放置說明於 `quickstart.md`
-- [ ] T085 補上效能驗證說明於 `quickstart.md`
-- [ ] T086 更新 README 說明統一介面使用方式
+> **Note**: `jniLibs` 設置與 `quickstart.md` 模型說明已在 Phase 1 完成（T002b-T002e）。
+
+- [ ] T072 更新 CMake 連結 `librknnrt.so` 於 `meeting-engine/src/main/cpp/CMakeLists.txt`
+  - 新增 `target_link_libraries` 連結 `${CMAKE_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}/librknnrt.so`
+- [ ] T073 更新 Gradle ABI/打包規則於 `meeting-engine/build.gradle.kts`
+  - 設定 `abiFilters "arm64-v8a"`
+  - 確認 `jniLibs.srcDirs` 包含 `src/main/jniLibs`
+- [ ] T074 補上效能驗證說明於 `quickstart.md`（延遲、記憶體使用量測方法）
+- [ ] T075 更新 README 說明統一介面使用方式
+- [ ] T076 撰寫 SDK 使用範例於 `app/src/main/java/.../MainActivity.kt`
 
 ---
 
@@ -245,7 +359,7 @@
 
 ### MVP First (User Story 1 Only)
 
-1. Phase 1 (T001-T004) → Phase 2 (T005-T022) 完成
+1. Phase 1 (T001-T002) → Phase 2 (T003-T022) 完成
 2. 依序完成 US1 各切片 (3.1 → 3.2 → ... → 3.8)
 3. **停止並驗證**：逐段輸出與 2 秒內產出
 
