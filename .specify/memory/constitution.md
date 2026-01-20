@@ -1,14 +1,14 @@
 <!--
 Sync Impact Report
-- 版本變更: 未定義 → 1.0.0
-- 原則變更: 新增「程式碼品質與可讀性」「測試先行與 TDD 紀律」「使用者體驗一致性」「效能預算與資源控制」
-- 新增章節: 開發流程要求、品質門檻與驗證
+- 版本變更: 1.0.1 → 1.0.2
+- 原則變更: 更新「測試先行與 TDD 紀律」與流程要求以強制註解語言為 zh_TW
+- 新增章節: 無
 - 移除章節: 無
 - Templates requiring updates:
   - ✅ .specify/templates/plan-template.md
-  - ✅ .specify/templates/spec-template.md
   - ✅ .specify/templates/tasks-template.md
-  - ✅ .specify/templates/checklist-template.md
+  - ✅ .specify/templates/spec-template.md（無需變更）
+  - ✅ .specify/templates/checklist-template.md（無需變更）
   - ⚠ .specify/templates/commands/*.md（找不到路徑）
 - Follow-up TODOs:
   - TODO(RATIFICATION_DATE): 尚未提供原始採納日期
@@ -22,8 +22,10 @@ Sync Impact Report
 所有程式碼與建議必須包含錯誤處理與明確失敗路徑。
 
 ### 測試先行與 TDD 紀律
-TDD 為強制流程：先寫測試且必須失敗，再進行最小實作。
+TDD 為強制流程：先寫測試且必須失敗，再進行最小實作，最後再重構（RED → GREEN → REFACTOR）。
+執行上遵循小步快跑，盡量切割最小可驗證的單元。
 產出程式碼前必須先以註解說明「為什麼要這樣做」，再寫程式碼。
+註解必須使用台灣繁體中文（zh_TW）。
 每次只允許輸出一個 function 或一段程式碼，需經使用者驗證後才能繼續。
 
 ### 使用者體驗一致性
@@ -35,10 +37,11 @@ UI/UX 必須與既有設計語言與互動模式一致。
 不得引入無必要的記憶體、CPU 或 I/O 開銷，需有可量化的理由。
 
 ## 開發流程要求
-1. 先寫測試並確認失敗，再進行最小實作（TDD 小步快跑）。
-2. 實作前先用註解說明理由，再撰寫程式碼。
-3. 每次變更只包含一個 function 或一段程式碼，通過驗證再前進。
-4. 所有變更需維持錯誤處理與可回復性。
+1. 先寫測試並確認失敗 → 最小實作 → 重構（RED → GREEN → REFACTOR）。
+2. 小步快跑：每次只處理最小可驗證單元。
+3. 實作前先用註解說明理由（zh_TW），再撰寫程式碼。
+4. 每次變更只包含一個 function 或一段程式碼，通過驗證再前進。
+5. 所有變更需維持錯誤處理與可回復性。
 
 ## 品質門檻與驗證
 - 測試覆蓋必須對應需求與使用情境，避免只測 happy path。
@@ -51,4 +54,4 @@ UI/UX 必須與既有設計語言與互動模式一致。
 - 版本採語意化版本：破壞性變更升 MAJOR；新增原則或章節升 MINOR；文字澄清升 PATCH。
 - 每次計畫、規格與任務文件需檢核憲章條款的符合性。
 
-**Version**: 1.0.0 | **Ratified**: TODO(RATIFICATION_DATE): 尚未提供原始採納日期 | **Last Amended**: 2026-01-16
+**Version**: 1.0.2 | **Ratified**: TODO(RATIFICATION_DATE): 尚未提供原始採納日期 | **Last Amended**: 2026-01-20

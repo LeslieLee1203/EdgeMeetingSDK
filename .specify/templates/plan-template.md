@@ -31,8 +31,8 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- 測試先行 (TDD)：先寫測試且確認失敗，再進行最小實作
-- 先註解說明「為什麼要這樣做」，再寫程式碼
+- 測試先行 (TDD)：測試先失敗 → 最小實作 → 重構（RED → GREEN → REFACTOR），小步快跑切割最小可驗證單元
+- 先用 zh_TW 註解說明「為什麼要這樣做」，再寫程式碼
 - 每次輸出一個 function 或一段程式碼，需經驗證才能前進
 - UI/UX 一致性：使用既有元件與樣式，避免未定義行為
 - 效能預算：關鍵路徑有量測與目標，避免無理由開銷
