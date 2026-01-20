@@ -50,6 +50,7 @@ specs/002-whisper-asr/
 meeting-core/
 └── src/main/java/com/edgemeeting/core/
     ├── MeetingSession.kt
+    ├── model/LanguageSetting.kt
     └── model/TranscriptSegment.kt
 
 meeting-engine/
