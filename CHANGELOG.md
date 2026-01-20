@@ -4,6 +4,7 @@
 
 ### 新增
 - 新增 Whisper ASR 整合規格與需求檢核清單（`specs/002-whisper-asr`）。
+- 新增 Whisper ASR 實作計劃與研究、資料模型、合約、快速開始文件（`specs/002-whisper-asr`）。
 
 ### 調整
 - 更新專案憲章，補強 TDD 流程為 RED → GREEN → REFACTOR 與小步快跑要求。
@@ -14,6 +15,7 @@
 - 更新 Whisper ASR 規格語言標記回傳方式（`specs/002-whisper-asr/spec.md`）。
 - 更新 Whisper ASR 規格段落時間欄位（`specs/002-whisper-asr/spec.md`）。
 - 更新 Whisper ASR 規格錯誤回傳內容（`specs/002-whisper-asr/spec.md`）。
+- 更新 Cursor agent context（`.cursor/rules/specify-rules.mdc`）。
 
 ## [2026-01-16]
 

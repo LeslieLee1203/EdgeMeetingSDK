@@ -3,6 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2026-01-16
 
 ## Active Technologies
+- Kotlin 2.3.0、C++17 (NDK) + Kotlin Coroutines、AndroidX、JNI、RKNN Runtime (`librknnrt.so`) (002-whisper-asr)
+- 檔案（`.rknn` 模型檔） (002-whisper-asr)
 
 - Kotlin (JVM 11), C++17 (NDK) + Kotlin Coroutines, AndroidX, Oboe (001-mvp-transcript-flow)
 
@@ -22,6 +24,7 @@ tests/
 Kotlin (JVM 11), C++17 (NDK): Follow standard conventions
 
 ## Recent Changes
+- 002-whisper-asr: Added Kotlin 2.3.0、C++17 (NDK) + Kotlin Coroutines、AndroidX、JNI、RKNN Runtime (`librknnrt.so`)
 
 - 001-mvp-transcript-flow: Added Kotlin (JVM 11), C++17 (NDK) + Kotlin Coroutines, AndroidX, Oboe
 
