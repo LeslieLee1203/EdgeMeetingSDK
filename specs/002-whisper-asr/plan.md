@@ -5,7 +5,66 @@
 
 ## Summary
 
-在既有 Phase 0 假字串流程上，加入 RK3588 Whisper ASR JNI 整合，產出逐段文字，支援自動/指定語言與離線運作，錯誤回傳包含錯誤碼與訊息，並以靜音 >= 700ms 作為分段規則。
+在既有 `EngineBridge` 架構上，以**策略模式**整合 RK3588 Whisper ASR。透過統一的 `AsrConfig` 配置與 `EngineCallback` 回調，支援未來切換至其他 ASR 引擎（如 Zipformer）而不需修改上層 API。
+
+## Architecture
+
+### 策略模式設計
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    EngineBridge                         │
+│  init(config) → start() → stop() → release()           │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│                   EngineConfig                          │
+│  └─ asrConfig: AsrConfig?  ← null = 純錄音，無 ASR      │
+└─────────────────────────────────────────────────────────┘
+                          │
+            ┌─────────────┴─────────────┐
+            ▼                           ▼
+   ┌─────────────────┐        ┌─────────────────────┐
+   │ AsrConfig.Whisper│       │ AsrConfig.Zipformer │
+   │  - modelsPath    │       │  - modelsPath       │
+   │  - language      │       │  - beamSize         │
+   └─────────────────┘        └─────────────────────┘
+```
+
+### Native 端策略模式
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   native-lib.cpp                        │
+│  gAsrEngine = createAsrEngine(asrType)                  │
+└─────────────────────────────────────────────────────────┘
+                          │
+            ┌─────────────┴─────────────┐
+            ▼                           ▼
+   ┌─────────────────┐        ┌─────────────────────┐
+   │ WhisperAsrEngine│        │ ZipformerAsrEngine  │
+   │  (RKNN impl)    │        │  (future)           │
+   └─────────────────┘        └─────────────────────┘
+```
+
+### 資料流
+
+```
+AudioRecorder (C++)
+      │ PCM samples
+      ▼
+AsrEngine.pushAudio()
+      │ 內部累積/推論
+      ▼
+JNI callback: onTranscript(segment)
+      │
+      ▼
+EngineCallback.onTranscript()
+      │
+      ▼
+RkMeetingSession.transcriptFlow
+```
 
 ## Technical Context
 
@@ -55,21 +114,35 @@ specs/002-whisper-asr/
 meeting-core/
 └── src/main/java/com/edgemeeting/core/
     ├── MeetingSession.kt
-    ├── model/LanguageSetting.kt
-    └── model/TranscriptSegment.kt
+    ├── model/
+    │   ├── AsrConfig.kt        ← 新增：ASR 配置 sealed class
+    │   ├── LanguageSetting.kt
+    │   └── TranscriptSegment.kt
 
 meeting-engine/
 └── src/main/
     ├── cpp/
     │   ├── native-lib.cpp
-    │   └── (新增) whisper/
+    │   ├── asr/                 ← 新增：ASR 策略模式
+    │   │   ├── AsrEngine.h
+    │   │   └── WhisperAsrEngine.cpp
+    │   └── whisper/             ← 新增：Whisper 專屬實作
     └── java/com/edgemeeting/engine/
         ├── bridge/
+        │   ├── EngineBridge.kt  ← 修改：統一介面
+        │   ├── EngineCallback.kt ← 新增：統一回調
+        │   ├── EngineConfig.kt  ← 新增：統一配置
+        │   └── JniEngineBridge.kt
         └── RkMeetingSession.kt
 ```
 
-**Structure Decision**: Android 多模組 SDK，核心介面在 `meeting-core`，JNI/推理在 `meeting-engine`。
+**Structure Decision**: 
+
+1. **策略模式**：`AsrConfig` sealed class 確保型別安全，未來新增 ASR 只需加子類
+2. **統一生命週期**：一個 `init()`/`release()` 管理音訊 + ASR
+3. **回調模式**：`onTranscript` 與現有 `onAudioData` 一致，避免 polling
+4. **Native 策略**：C++ `AsrEngine` 抽象類，Whisper/Zipformer 各自實作
 
 ## Complexity Tracking
 
-無需新增複雜度例外。
+無需新增複雜度例外。策略模式增加的抽象層級（AsrEngine 介面）換取未來 ASR 切換的靈活性，符合 SOLID 的開放封閉原則。

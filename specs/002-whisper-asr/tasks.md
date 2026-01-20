@@ -5,7 +5,7 @@
 
 **Tests**: 測試為必要（TDD：RED → GREEN → REFACTOR）
 
-**Organization**: 依 User Story 分組，確保每個故事可獨立驗證
+**Organization**: 依功能切片分組，每個切片獨立完成 TDD 循環
 
 ## Phase 1: Setup (Shared Infrastructure)
 
@@ -20,30 +20,47 @@
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: 先打通 JNI/Native 骨架與錯誤回傳型別
+**Purpose**: 建立統一介面基礎設施
 
 **⚠️ CRITICAL**: 未完成不可進入任何 User Story
 
-### 2.1 純骨架（無邏輯，免測試）
+### 2.1 AsrConfig 資料模型（TDD）
 
-- [ ] T005 建立 `meeting-engine/src/main/cpp/whisper/` 目錄與空殼檔案 `RknnWhisperEngine.{h,cpp}`
-- [ ] T006 建立 JNI 介面骨架於 `meeting-engine/src/main/cpp/native-lib.cpp`（僅宣告、不實作）
-- [ ] T007 建立 Kotlin 端介面骨架於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineBridge.kt`
-- [ ] T008 建立 JNI 端實作骨架於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/JniEngineBridge.kt`
+- [ ] T005 🔴 RED: 測試 `AsrConfig.Whisper` 建構與驗證於 `meeting-core/src/test/java/com/edgemeeting/core/AsrConfigTest.kt`
+- [ ] T006 🟢 GREEN: 建立 `AsrConfig` sealed class 於 `meeting-core/src/main/java/com/edgemeeting/core/model/AsrConfig.kt`
+- [ ] T007 🔵 REFACTOR: 檢視 sealed class 結構與命名
 
-### 2.2 BridgeResult（TDD：RED → GREEN → REFACTOR）
+### 2.2 EngineConfig 資料模型（TDD）
 
-- [ ] T009 🔴 RED: 建立 `BridgeResultTest` 測試於 `meeting-engine/src/test/java/com/edgemeeting/engine/BridgeResultTest.kt`（測試先寫，預期失敗）
-- [ ] T010 🟢 GREEN: 建立 `BridgeResult` 最小實作於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/BridgeResult.kt`（通過測試）
-- [ ] T011 🔵 REFACTOR: 檢視 `BridgeResult` 命名與結構，必要時重構
+- [ ] T008 🔴 RED: 測試 `EngineConfig` 建構於 `meeting-engine/src/test/java/com/edgemeeting/engine/EngineConfigTest.kt`
+- [ ] T009 🟢 GREEN: 建立 `EngineConfig` 於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineConfig.kt`
+- [ ] T010 🔵 REFACTOR: 檢視預設值與 null 處理
 
-### 2.3 ModelAssetManager（TDD：RED → GREEN → REFACTOR）
+### 2.3 EngineCallback 擴充（TDD）
 
-- [ ] T012 🔴 RED: 建立 `ModelAssetManagerTest` 測試於 `meeting-engine/src/test/java/com/edgemeeting/engine/ModelAssetManagerTest.kt`（測試先寫，預期失敗）
-- [ ] T013 🟢 GREEN: 建立 `ModelAssetManager` 最小實作於 `meeting-engine/src/main/java/com/edgemeeting/engine/ModelAssetManager.kt`（通過測試）
-- [ ] T014 🔵 REFACTOR: 檢視 `ModelAssetManager` 錯誤處理與邊界情況，必要時重構
+- [ ] T011 🔴 RED: 測試 `EngineCallback.onTranscript` 回調於 `meeting-engine/src/test/java/com/edgemeeting/engine/EngineCallbackTest.kt`
+- [ ] T012 🟢 GREEN: 擴充 `EngineCallback` 介面（從 `AudioCallback` 重構）於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineCallback.kt`
+- [ ] T013 🔵 REFACTOR: 確認向後相容性
 
-**Checkpoint**: JNI/Bridge/Native skeleton 完成，可開始 User Story
+### 2.4 EngineBridge 介面更新（TDD）
+
+- [ ] T014 🔴 RED: 測試 `EngineBridge.init(EngineConfig)` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/EngineBridgeTest.kt`
+- [ ] T015 🟢 GREEN: 更新 `EngineBridge.init` 簽章於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineBridge.kt`
+- [ ] T016 🔵 REFACTOR: 檢視介面一致性
+
+### 2.5 ModelAssetManager（TDD）
+
+- [ ] T017 🔴 RED: 測試 `ModelAssetManager.ensureModels` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/ModelAssetManagerTest.kt`
+- [ ] T018 🟢 GREEN: 建立 `ModelAssetManager` 於 `meeting-engine/src/main/java/com/edgemeeting/engine/ModelAssetManager.kt`
+- [ ] T019 🔵 REFACTOR: 檢視錯誤處理與邊界情況
+
+### 2.6 BridgeResult 錯誤碼（TDD）
+
+- [ ] T020 🔴 RED: 測試 `BridgeResult` 錯誤碼常數於 `meeting-engine/src/test/java/com/edgemeeting/engine/BridgeResultTest.kt`
+- [ ] T021 🟢 GREEN: 擴充 `BridgeResult` 錯誤碼於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/BridgeResult.kt`
+- [ ] T022 🔵 REFACTOR: 檢視錯誤碼命名與範圍
+
+**Checkpoint**: 統一介面基礎設施完成，可開始 User Story
 
 ---
 
@@ -55,57 +72,69 @@
 
 ### 3.1 TranscriptSegment 資料模型（TDD）
 
-- [ ] T015 🔴 RED: 測試 `TranscriptSegment` 欄位（text, startMs, endMs, languageCode）於 `meeting-core/src/test/java/com/edgemeeting/core/TranscriptSegmentTest.kt`
-- [ ] T016 🟢 GREEN: 更新 `TranscriptSegment` 欄位於 `meeting-core/src/main/java/com/edgemeeting/core/model/TranscriptSegment.kt`
-- [ ] T017 🔵 REFACTOR: 檢視欄位命名與驗證邏輯
+- [ ] T023 🔴 RED: 測試 `TranscriptSegment` 新欄位（startMs, endMs, languageCode）於 `meeting-core/src/test/java/com/edgemeeting/core/TranscriptSegmentTest.kt`
+- [ ] T024 🟢 GREEN: 更新 `TranscriptSegment` 欄位於 `meeting-core/src/main/java/com/edgemeeting/core/model/TranscriptSegment.kt`
+- [ ] T025 🔵 REFACTOR: 檢視欄位命名與驗證邏輯
 
-### 3.2 模型載入流程（TDD）
+### 3.2 Native AsrEngine 抽象層（TDD）
 
-- [ ] T018 🔴 RED: 測試 `prepare()` 呼叫 `ensureModels` 並傳遞路徑於 `meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTest.kt`
-- [ ] T019 🟢 GREEN: 實作 `ModelAssetManager.ensureModels(context)` 呼叫於 `RkMeetingSession.kt`
-- [ ] T020 🟢 GREEN: 實作 `filesDir/models` 路徑傳遞給 native 於 `RkMeetingSession.kt`
-- [ ] T021 🔵 REFACTOR: 檢視模型載入錯誤處理
+- [ ] T026 🔴 RED: 建立 `AsrEngine` 介面測試骨架（C++ mock）
+- [ ] T027 🟢 GREEN: 建立 `AsrEngine.h` 抽象類於 `meeting-engine/src/main/cpp/asr/AsrEngine.h`（含 init/start/pushAudio/stop/release）
+- [ ] T028 🔵 REFACTOR: 檢視介面最小化
 
-### 3.3 Native Engine 初始化（TDD）
+### 3.3 WhisperAsrEngine 初始化與生命週期（TDD）
 
-- [ ] T022 🔴 RED: 測試 `initWhisper`/`releaseWhisper` JNI 呼叫於 `meeting-engine/src/test/java/com/edgemeeting/engine/JniEngineBridgeTest.kt`
-- [ ] T023 🟢 GREEN: 實作 native engine 載入與釋放於 `meeting-engine/src/main/cpp/whisper/RknnWhisperEngine.cpp`
-- [ ] T024 🟢 GREEN: 實作 `initWhisper`/`releaseWhisper` JNI 串接於 `meeting-engine/src/main/cpp/native-lib.cpp`
-- [ ] T025 🟢 GREEN: 實作 `JniEngineBridge.initWhisper`/`releaseWhisper` 於 `JniEngineBridge.kt`
-- [ ] T026 🔵 REFACTOR: 檢視資源釋放與生命週期管理
+- [ ] T029 🔴 RED: 測試 `WhisperAsrEngine.init` 載入模型於 C++ 單元測試
+- [ ] T030 🟢 GREEN: 實作 `WhisperAsrEngine.init` 於 `meeting-engine/src/main/cpp/asr/WhisperAsrEngine.cpp`
+- [ ] T031 🟢 GREEN: 實作 RKNN 模型載入於 `WhisperAsrEngine.cpp`
+- [ ] T032 🟢 GREEN: 實作 `WhisperAsrEngine.start`/`stop`（重置狀態/flush 剩餘音訊）
+- [ ] T033 🔵 REFACTOR: 檢視資源管理與錯誤處理
 
-### 3.4 音訊輸入與轉錄輸出（TDD）
+### 3.4 JNI ASR 整合（TDD）
 
-- [ ] T027 🔴 RED: 測試逐段分段規則（靜音 >= 700ms）於 `meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTranscriptTest.kt`
-- [ ] T028 🟢 GREEN: 實作 `pushAudio` JNI 串接於 `meeting-engine/src/main/cpp/native-lib.cpp`
-- [ ] T029 🟢 GREEN: 實作 `pollTranscript` JNI 串接於 `meeting-engine/src/main/cpp/native-lib.cpp`
-- [ ] T030 🟢 GREEN: 實作 `JniEngineBridge.pushAudio`/`pollTranscript` 於 `JniEngineBridge.kt`
-- [ ] T031 🔵 REFACTOR: 檢視音訊緩衝與記憶體使用
+- [ ] T034 🔴 RED: 測試 `JniEngineBridge.init(EngineConfig)` 建立 ASR 引擎於 `JniEngineBridgeTest.kt`
+- [ ] T035 🟢 GREEN: 更新 `native-lib.cpp` 支援 `AsrConfig` 參數
+- [ ] T036 🟢 GREEN: 實作 `JniEngineBridge.init` 呼叫 native ASR 初始化
+- [ ] T037 🔵 REFACTOR: 檢視 JNI 參數傳遞效率
 
-### 3.5 啟停轉錄流程（TDD）
+### 3.5 音訊輸入與轉錄輸出（TDD）
 
-- [ ] T032 🔴 RED: 測試 `start()`/`stop()` 啟停轉錄於 `meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTest.kt`
-- [ ] T033 🟢 GREEN: 實作 `start()`/`stop()` 流程於 `RkMeetingSession.kt`
-- [ ] T034 🟢 GREEN: 將逐段結果接入 `transcriptFlow` 於 `RkMeetingSession.kt`
-- [ ] T035 🔵 REFACTOR: 檢視狀態轉換與執行緒安全
+- [ ] T038 🔴 RED: 測試逐段分段規則（靜音 >= 700ms）於 `RkMeetingSessionTranscriptTest.kt`
+- [ ] T039 🟢 GREEN: 實作 `WhisperAsrEngine.pushAudio` 於 `WhisperAsrEngine.cpp`
+- [ ] T040 🟢 GREEN: 實作靜音偵測與分段邏輯於 `WhisperAsrEngine.cpp`
+- [ ] T041 🟢 GREEN: 實作 JNI callback `onTranscript` 回傳於 `native-lib.cpp`
+- [ ] T042 🔵 REFACTOR: 檢視音訊緩衝與記憶體使用
 
-### 3.6 效能與穩定性驗證（TDD）
+### 3.6 RkMeetingSession 整合（TDD）
 
-- [ ] T036 🔴 RED: 測試 2 秒內產出段落於 `RkMeetingSessionTranscriptTest.kt`
-- [ ] T037 🟢 GREEN: 調整實作以符合 2 秒產出要求
-- [ ] T038 🔵 REFACTOR: 效能瓶頸分析與優化
+- [ ] T043 🔴 RED: 測試 `prepare()` 使用 `EngineConfig` 於 `RkMeetingSessionTest.kt`
+- [ ] T044 🟢 GREEN: 更新 `RkMeetingSession.prepare()` 使用 `EngineConfig`
+- [ ] T045 🟢 GREEN: 將 `onTranscript` 回調接入 `transcriptFlow`
+- [ ] T046 🔵 REFACTOR: 檢視狀態轉換與執行緒安全
 
-- [ ] T039 🔴 RED: 測試 20 秒音訊 20 秒內完成於 `RkMeetingSessionTranscriptTest.kt`
-- [ ] T040 🟢 GREEN: 調整實作以符合即時處理要求
-- [ ] T041 🔵 REFACTOR: 處理延遲分析
+### 3.7 啟停轉錄流程（TDD）
 
-- [ ] T042 🔴 RED: 測試 30 分鐘穩定性於 `RkMeetingSessionStabilityTest.kt`
-- [ ] T043 🟢 GREEN: 調整實作以符合長時間穩定要求
-- [ ] T044 🔵 REFACTOR: 記憶體洩漏檢查
+- [ ] T047 🔴 RED: 測試 `start()`/`stop()` 啟停 ASR 於 `RkMeetingSessionTest.kt`
+- [ ] T048 🟢 GREEN: 更新 `start()`/`stop()` 控制 ASR 引擎（呼叫 AsrEngine.start/stop）
+- [ ] T049 🔵 REFACTOR: 檢視生命週期管理
 
-- [ ] T045 🔴 RED: 測試離線狀態仍可轉錄於 `RkMeetingSessionTest.kt`
-- [ ] T046 🟢 GREEN: 確認離線運作無網路依賴
-- [ ] T047 🔵 REFACTOR: 離線模式驗證完整性
+### 3.8 效能與穩定性驗證（TDD）
+
+- [ ] T050 🔴 RED: 測試 2 秒內產出段落於 `RkMeetingSessionTranscriptTest.kt`
+- [ ] T051 🟢 GREEN: 調整實作以符合 2 秒產出要求
+- [ ] T052 🔵 REFACTOR: 效能瓶頸分析
+
+- [ ] T053 🔴 RED: 測試 20 秒音訊 20 秒內完成
+- [ ] T054 🟢 GREEN: 確認即時處理能力
+- [ ] T055 🔵 REFACTOR: 處理延遲優化
+
+- [ ] T056 🔴 RED: 測試 30 分鐘穩定性於 `RkMeetingSessionStabilityTest.kt`
+- [ ] T057 🟢 GREEN: 確認長時間穩定性
+- [ ] T058 🔵 REFACTOR: 記憶體洩漏檢查
+
+- [ ] T059 🔴 RED: 測試離線狀態仍可轉錄
+- [ ] T060 🟢 GREEN: 確認離線運作無網路依賴
+- [ ] T061 🔵 REFACTOR: 離線模式驗證
 
 **Checkpoint**: US1 可獨立運作並通過所有測試
 
@@ -119,23 +148,22 @@
 
 ### 4.1 LanguageSetting 資料模型（TDD）
 
-- [ ] T048 🔴 RED: 測試 `LanguageSetting`（auto/fixed mode）於 `meeting-core/src/test/java/com/edgemeeting/core/LanguageSettingTest.kt`
-- [ ] T049 🟢 GREEN: 新增 `LanguageSetting` 型別於 `meeting-core/src/main/java/com/edgemeeting/core/model/LanguageSetting.kt`
-- [ ] T050 🔵 REFACTOR: 檢視語言代碼驗證邏輯
+- [ ] T062 🔴 RED: 測試 `LanguageSetting`（auto/fixed mode）於 `LanguageSettingTest.kt`
+- [ ] T063 🟢 GREEN: 建立/更新 `LanguageSetting` 於 `meeting-core/src/main/java/com/edgemeeting/core/model/LanguageSetting.kt`
+- [ ] T064 🔵 REFACTOR: 檢視語言代碼驗證
 
-### 4.2 語言設定傳遞（Kotlin → JNI）（TDD）
+### 4.2 語言設定傳遞（TDD）
 
-- [ ] T051 🔴 RED: 測試語言設定傳遞於 `meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTest.kt`
-- [ ] T052 🟢 GREEN: 調整 `EngineBridge` 介面新增語言參數於 `EngineBridge.kt`
-- [ ] T053 🟢 GREEN: 調整 `JniEngineBridge` 傳遞語言設定於 `JniEngineBridge.kt`
-- [ ] T054 🔵 REFACTOR: 檢視參數傳遞一致性
+- [ ] T065 🔴 RED: 測試 `AsrConfig.Whisper` 語言設定傳遞於 `RkMeetingSessionTest.kt`
+- [ ] T066 🟢 GREEN: 實作語言設定從 `EngineConfig` 傳遞至 native
+- [ ] T067 🟢 GREEN: 實作 `WhisperAsrEngine` 語言設定處理
+- [ ] T068 🔵 REFACTOR: 檢視語言設定傳遞路徑
 
-### 4.3 語言設定處理（JNI → Native）（TDD）
+### 4.3 語言代碼輸出（TDD）
 
-- [ ] T055 🔴 RED: 測試語言代碼輸出於 `TranscriptSegmentTest.kt`
-- [ ] T056 🟢 GREEN: 調整 JNI 端語言設定處理於 `native-lib.cpp`
-- [ ] T057 🟢 GREEN: 調整 native engine 語言設定處理於 `RknnWhisperEngine.cpp`
-- [ ] T058 🔵 REFACTOR: 檢視語言設定傳遞路徑完整性
+- [ ] T069 🔴 RED: 測試 `TranscriptSegment.languageCode` 正確輸出
+- [ ] T070 🟢 GREEN: 實作語言偵測結果回傳於 `WhisperAsrEngine.cpp`
+- [ ] T071 🔵 REFACTOR: 檢視語言代碼格式一致性
 
 **Checkpoint**: US2 可獨立運作並通過所有測試
 
@@ -149,23 +177,22 @@
 
 ### 5.1 模型缺失錯誤（TDD）
 
-- [ ] T059 🔴 RED: 測試模型缺失時回傳錯誤於 `meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionStateTest.kt`
-- [ ] T060 🟢 GREEN: 實作 native 模型缺失錯誤回傳於 `RknnWhisperEngine.cpp`
-- [ ] T061 🟢 GREEN: 實作 JNI 錯誤轉譯於 `native-lib.cpp`
-- [ ] T062 🔵 REFACTOR: 檢視錯誤訊息可讀性
+- [ ] T072 🔴 RED: 測試模型缺失時回傳 `ERR_MODEL_NOT_FOUND` 於 `RkMeetingSessionStateTest.kt`
+- [ ] T073 🟢 GREEN: 實作 `ModelAssetManager` 檔案存在檢查
+- [ ] T074 🟢 GREEN: 實作 native 模型缺失錯誤回傳
+- [ ] T075 🔵 REFACTOR: 檢視錯誤訊息可讀性
 
-### 5.2 錯誤碼與訊息傳遞（TDD）
+### 5.2 模型載入失敗（TDD）
 
-- [ ] T063 🔴 RED: 測試錯誤碼與訊息欄位於 `meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTest.kt`
-- [ ] T064 🟢 GREEN: 擴充 `BridgeResult` 錯誤碼表於 `BridgeResult.kt`
-- [ ] T065 🟢 GREEN: 實作 `RkMeetingSession` 錯誤狀態回傳於 `RkMeetingSession.kt`
-- [ ] T066 🔵 REFACTOR: 檢視錯誤碼一致性與文件化
+- [ ] T076 🔴 RED: 測試模型損壞時回傳 `ERR_MODEL_LOAD_FAILED`
+- [ ] T077 🟢 GREEN: 實作 RKNN 載入錯誤捕獲於 `WhisperAsrEngine.cpp`
+- [ ] T078 🔵 REFACTOR: 檢視錯誤傳遞完整性
 
 ### 5.3 降級與恢復（TDD）
 
-- [ ] T067 🔴 RED: 測試錯誤後可重新 `prepare()` 恢復於 `RkMeetingSessionStateTest.kt`
-- [ ] T068 🟢 GREEN: 實作錯誤狀態可恢復邏輯於 `RkMeetingSession.kt`
-- [ ] T069 🔵 REFACTOR: 檢視狀態機完整性
+- [ ] T079 🔴 RED: 測試錯誤後可重新 `prepare()` 恢復
+- [ ] T080 🟢 GREEN: 實作錯誤狀態可恢復邏輯於 `RkMeetingSession.kt`
+- [ ] T081 🔵 REFACTOR: 檢視狀態機完整性
 
 **Checkpoint**: US3 可獨立運作並通過所有測試
 
@@ -175,10 +202,11 @@
 
 **Purpose**: 打包、效能與回歸驗證
 
-- [ ] T070 更新 CMake 連結 `librknnrt.so` 於 `meeting-engine/src/main/cpp/CMakeLists.txt`
-- [ ] T071 更新 Gradle ABI/打包規則於 `meeting-engine/build.gradle.kts`
-- [ ] T072 新增 `jniLibs/arm64-v8a` 放置說明於 `specs/002-whisper-asr/quickstart.md`
-- [ ] T073 補上效能驗證說明於 `specs/002-whisper-asr/quickstart.md`
+- [ ] T082 更新 CMake 連結 `librknnrt.so` 於 `meeting-engine/src/main/cpp/CMakeLists.txt`
+- [ ] T083 更新 Gradle ABI/打包規則於 `meeting-engine/build.gradle.kts`
+- [ ] T084 新增 `jniLibs/arm64-v8a` 放置說明於 `quickstart.md`
+- [ ] T085 補上效能驗證說明於 `quickstart.md`
+- [ ] T086 更新 README 說明統一介面使用方式
 
 ---
 
@@ -194,13 +222,13 @@
 ### User Story Dependencies
 
 - **US1 (P1)**: 依賴 Foundational 完成
-- **US2 (P2)**: 可接續 US1，或與 US3 並行（需共用 Bridge 介面）
-- **US3 (P3)**: 可接續 US1，或與 US2 並行（需共用 Bridge 介面）
+- **US2 (P2)**: 依賴 US1 的 AsrConfig 傳遞機制
+- **US3 (P3)**: 依賴 US1 的錯誤回傳基礎
 
 ### Parallel Opportunities
 
-- Phase 2.1 骨架任務可並行
-- US2/US3 若不互相影響可由不同人並行
+- Phase 2 各切片可部分並行（無相依者）
+- US2/US3 在 US1 完成後可並行
 
 ---
 
@@ -217,8 +245,8 @@
 
 ### MVP First (User Story 1 Only)
 
-1. Phase 1 (T001-T004) → Phase 2 (T005-T014) 完成
-2. 依序完成 US1 各切片 (3.1 → 3.2 → 3.3 → 3.4 → 3.5 → 3.6)
+1. Phase 1 (T001-T004) → Phase 2 (T005-T022) 完成
+2. 依序完成 US1 各切片 (3.1 → 3.2 → ... → 3.8)
 3. **停止並驗證**：逐段輸出與 2 秒內產出
 
 ### Incremental Delivery
@@ -227,3 +255,11 @@
 2. US2 (Phase 4) 完成並驗證
 3. US3 (Phase 5) 完成並驗證
 4. Phase 6 收尾
+
+### 策略模式優勢
+
+未來新增 Zipformer 或其他 ASR：
+1. 新增 `AsrConfig.Zipformer` 子類（Kotlin）
+2. 新增 `ZipformerAsrEngine` 實作（C++）
+3. 更新 `native-lib.cpp` 的 engine factory
+4. **無需修改 EngineBridge 或 RkMeetingSession**

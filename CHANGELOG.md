@@ -5,11 +5,16 @@
 ### 新增
 - 新增 Whisper ASR 整合規格與需求檢核清單（`specs/002-whisper-asr`）。
 - 新增模型部署策略：assets 打包 + 複製至 app-specific storage。
-- 新增 `ModelAssetManager` 任務（T006a/T006b）負責模型檔案複製。
-- 新增模型路徑慣例任務（T002a/T002b）。
-- 新增 TDD REFACTOR 階段任務（T007a, T006c, T023a/b, T030a/b, T036a/b）。
 - 新增 Whisper ASR 實作計劃與研究、資料模型、合約、快速開始文件（`specs/002-whisper-asr`）。
 - 新增 Whisper ASR 任務拆解（`specs/002-whisper-asr/tasks.md`）。
+
+### 架構重構（策略模式）
+- 採用策略模式統一 ASR 介面，支援未來切換至 Zipformer 等其他 ASR 引擎。
+- 新增 `AsrConfig` sealed class（Kotlin）作為 ASR 配置抽象。
+- 新增 `EngineConfig` 統一引擎配置（含可選 `asrConfig`）。
+- 擴充 `EngineCallback` 介面新增 `onTranscript` 回調（取代 polling 模式）。
+- 設計 Native 端 `AsrEngine` 抽象類與 `WhisperAsrEngine` 實作。
+- 移除獨立的 `initWhisper`/`releaseWhisper` API，整合至現有 `EngineBridge` 生命週期。
 
 ### 調整
 - 更新專案憲章，補強 TDD 流程為 RED → GREEN → REFACTOR 與小步快跑要求。
@@ -29,8 +34,11 @@
 - 拆分 T016 為 T016/T016a 以符合最小可驗證單元原則。
 - 調整 Whisper ASR 任務以明確對齊模型載入與啟停流程（`specs/002-whisper-asr/tasks.md`）。
 - 重構 Phase 3-5 任務結構：依功能切片組織，每個切片獨立完成 RED → GREEN → REFACTOR 循環。
-- 重新編號任務 T001-T073，依執行順序排列。
-- 更新 Whisper ASR 計畫文件的檔案結構描述（`specs/002-whisper-asr/plan.md`）。
+- 重新編號任務 T001-T085，依執行順序排列。
+- 全面重構 `plan.md`：新增策略模式架構圖、Native 端設計、資料流說明。
+- 全面重構 `contracts/sdk.md`：定義統一介面（EngineConfig、EngineCallback、AsrEngine）。
+- 全面重構 `data-model.md`：新增 AsrConfig、EngineConfig、錯誤碼定義。
+- 全面重構 `tasks.md`：依策略模式架構重新組織任務，新增 Native AsrEngine 抽象層任務。
 
 ## [2026-01-16]
 
