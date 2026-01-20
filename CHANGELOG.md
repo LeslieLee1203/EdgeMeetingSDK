@@ -2,10 +2,18 @@
 
 ## [2026-01-20]
 
+### 新增
+- 新增 Whisper ASR 整合規格與需求檢核清單（`specs/002-whisper-asr`）。
+
 ### 調整
 - 更新專案憲章，補強 TDD 流程為 RED → GREEN → REFACTOR 與小步快跑要求。
 - 更新 Speckit 計畫與任務模板，對齊 TDD 小步快跑與重構步驟。
 - 更新專案憲章與模板，註解必須使用台灣繁體中文（zh_TW）。
+- 更新 Whisper ASR 規格分段規則與澄清紀錄（`specs/002-whisper-asr/spec.md`）。
+- 更新 Whisper ASR 規格語言支援範圍（`specs/002-whisper-asr/spec.md`）。
+- 更新 Whisper ASR 規格語言標記回傳方式（`specs/002-whisper-asr/spec.md`）。
+- 更新 Whisper ASR 規格段落時間欄位（`specs/002-whisper-asr/spec.md`）。
+- 更新 Whisper ASR 規格錯誤回傳內容（`specs/002-whisper-asr/spec.md`）。
 
 ## [2026-01-16]
 
