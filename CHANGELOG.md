@@ -4,6 +4,9 @@
 
 ### 新增
 - 新增 Whisper ASR 整合規格與需求檢核清單（`specs/002-whisper-asr`）。
+- 新增模型部署策略：assets 打包 + 複製至 app-specific storage。
+- 新增 `ModelAssetManager` 任務（T006a/T006b）負責模型檔案複製。
+- 新增模型路徑慣例任務（T002a/T002b）。
 - 新增 Whisper ASR 實作計劃與研究、資料模型、合約、快速開始文件（`specs/002-whisper-asr`）。
 - 新增 Whisper ASR 任務拆解（`specs/002-whisper-asr/tasks.md`）。
 
@@ -18,6 +21,8 @@
 - 更新 Whisper ASR 規格錯誤回傳內容（`specs/002-whisper-asr/spec.md`）。
 - 更新 Cursor agent context（`.cursor/rules/specify-rules.mdc`）。
 - 調整 Whisper ASR 任務拆解以補齊離線與效能驗證（`specs/002-whisper-asr/tasks.md`）。
+- 更新模型路徑假設與部署策略於 `spec.md`、`plan.md`、`contracts/sdk.md`、`quickstart.md`。
+- 更新 T016 任務描述以包含 `ModelAssetManager` 整合。
 - 調整 Whisper ASR 任務以明確對齊模型載入與啟停流程（`specs/002-whisper-asr/tasks.md`）。
 - 更新 Whisper ASR 計畫文件的檔案結構描述（`specs/002-whisper-asr/plan.md`）。
 

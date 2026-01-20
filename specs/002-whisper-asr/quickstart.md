@@ -2,8 +2,15 @@
 
 ## 前置條件
 
-- 裝置已放置 `whisper_encoder_base_20s.rknn` 與 `whisper_decoder_base_20s.rknn`
-- 具備 `librknnrt.so` 且與模型版本相容
+### 模型檔放置
+
+1. 將 `whisper_encoder_base_20s.rknn` 與 `whisper_decoder_base_20s.rknn` 放入 `app/src/main/assets/models/`
+2. SDK 首次 `prepare()` 時會自動複製至 `context.filesDir/models/`
+
+### Native 依賴
+
+1. 將 `librknnrt.so` 放入 `meeting-engine/src/main/jniLibs/arm64-v8a/`
+2. 確認版本與模型相容
 
 ## 基本流程
 

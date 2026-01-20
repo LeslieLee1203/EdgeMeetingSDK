@@ -12,6 +12,11 @@
 **Language/Version**: Kotlin 2.3.0、C++17 (NDK)  
 **Primary Dependencies**: Kotlin Coroutines、AndroidX、JNI、RKNN Runtime (`librknnrt.so`)  
 **Storage**: 檔案（`.rknn` 模型檔）  
+**Model Deployment**:
+- 模型檔路徑: `app/src/main/assets/models/whisper_encoder_base_20s.rknn`, `whisper_decoder_base_20s.rknn`
+- Runtime 路徑: `context.filesDir/models/` (app-specific, 不需額外權限)
+- Native 依賴: `meeting-engine/src/main/jniLibs/arm64-v8a/librknnrt.so`
+
 **Testing**: JUnit、kotlinx-coroutines-test  
 **Target Platform**: Android 13-15 (API 33-36) on RK3588, arm64-v8a  
 **Project Type**: Android multi-module SDK  

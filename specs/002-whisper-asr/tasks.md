@@ -13,6 +13,8 @@
 
 - [ ] T001 更新模型檔放置說明到 `specs/002-whisper-asr/quickstart.md`
 - [ ] T002 確認 `.rknn` 模型與 `librknnrt.so` 佈署規則文件化於 `specs/002-whisper-asr/quickstart.md`
+- [ ] T002a 定義模型路徑慣例：assets 打包路徑 `assets/models/`，runtime 路徑 `filesDir/models/`
+- [ ] T002b 建立 `app/src/main/assets/models/.gitkeep` 佔位檔
 
 ---
 
@@ -26,6 +28,8 @@
 - [ ] T004 建立 JNI 介面骨架於 `meeting-engine/src/main/cpp/native-lib.cpp`（僅宣告、不實作）
 - [ ] T005 建立 Kotlin 端介面骨架於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineBridge.kt`
 - [ ] T006 建立 JNI 端實作骨架於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/JniEngineBridge.kt`
+- [ ] T006a 建立 `ModelAssetManager` 於 `meeting-engine/src/main/java/com/edgemeeting/engine/ModelAssetManager.kt`，負責從 assets 複製模型至 filesDir
+- [ ] T006b [P] 建立 `ModelAssetManagerTest` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/ModelAssetManagerTest.kt`
 - [ ] T007 建立錯誤碼與訊息規格對照表於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/BridgeResult.kt`
 - [ ] T008 [P] 建立 `BridgeResult` 最小單元測試於 `meeting-engine/src/test/java/com/edgemeeting/engine/BridgeResultTest.kt`
 
@@ -51,7 +55,7 @@
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] 實作會議前載入模型流程於 `meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`
+- [ ] T016 [US1] 實作會議前載入模型流程：先呼叫 `ModelAssetManager.ensureModels(context)`，再傳 `filesDir/models` 路徑給 native，於 `meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt`
 - [ ] T017 [US1] 實作 native engine 載入與釋放骨架於 `meeting-engine/src/main/cpp/whisper/RknnWhisperEngine.cpp`
 - [ ] T018 [US1] 實作 `initWhisper`/`releaseWhisper` JNI 串接於 `meeting-engine/src/main/cpp/native-lib.cpp`
 - [ ] T019 [US1] 實作 `pushAudio` 與 `pollTranscript` JNI 串接於 `meeting-engine/src/main/cpp/native-lib.cpp`

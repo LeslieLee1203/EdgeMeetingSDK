@@ -95,7 +95,8 @@
 
 ### Assumptions & Dependencies
 
-- 裝置已具備可用的語音轉錄模型檔案
+- 模型檔 (`*.rknn`) 打包於 APK `assets/models/` 目錄，首次啟動時複製至 app-specific storage
+- `librknnrt.so` 放置於 `jniLibs/arm64-v8a/`
 - 轉錄功能僅在支援的裝置上啟用
 - 使用者已授權麥克風使用權限
 

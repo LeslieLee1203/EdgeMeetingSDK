@@ -3,7 +3,7 @@
 ## 初始化
 
 - **initWhisper(modelsPath, languageSetting)** → `BridgeResult`
-  - modelsPath: `.rknn` 模型檔所在資料夾
+  - modelsPath: `.rknn` 模型檔所在資料夾的絕對路徑（不含尾斜線，如 `/data/data/com.edgemeeting.engine/files/models`）
   - languageSetting: `auto` 或指定語言代碼
 
 ## 音訊輸入
