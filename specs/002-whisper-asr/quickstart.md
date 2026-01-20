@@ -4,7 +4,7 @@
 
 ### 模型檔放置
 
-1. 將 `whisper_encoder_base_20s.rknn` 與 `whisper_decoder_base_20s.rknn` 放入 `app/src/main/assets/models/`
+1. 將 `whisper_encoder_base_20s.rknn` 與 `whisper_decoder_base_20s.rknn` 放入 `meeting-engine/src/main/assets/models/`
 2. SDK 首次 `prepare()` 時會自動複製至 `context.filesDir/models/`
 
 ### Native 依賴

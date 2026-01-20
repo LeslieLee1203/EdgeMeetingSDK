@@ -143,7 +143,17 @@
 - [ ] T022b 建立測試目錄結構 `meeting-engine/src/main/cpp/test/`
 - [ ] T022c 驗證：執行 `./gradlew :meeting-engine:testDebugUnitTest` 可跑 C++ 測試
 
-**Checkpoint**: 統一介面基礎設施與 C++ 測試環境完成，可開始 User Story
+### 2.8 Native Build 配置（RKNN 依賴）
+
+> **Purpose**: Phase 3 的 WhisperAsrEngine 需要連結 `librknnrt.so`，必須先完成 CMake/Gradle 配置。
+
+- [ ] T022d 更新 CMake 連結 `librknnrt.so` 於 `meeting-engine/src/main/cpp/CMakeLists.txt`
+  - 新增 `target_link_libraries` 連結 `${CMAKE_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}/librknnrt.so`
+- [ ] T022e 更新 Gradle ABI/打包規則於 `meeting-engine/build.gradle.kts`
+  - 設定 `abiFilters "arm64-v8a"`
+  - 確認 `jniLibs.srcDirs` 包含 `src/main/jniLibs`
+
+**Checkpoint**: 統一介面基礎設施、C++ 測試環境與 Native 依賴配置完成，可開始 User Story
 
 ---
 
@@ -309,18 +319,13 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-**Purpose**: 打包、效能與回歸驗證
+**Purpose**: 文件完善、效能驗證與範例程式
 
-> **Note**: `jniLibs` 設置與 `quickstart.md` 模型說明已在 Phase 1 完成（T002b-T002e）。
+> **Note**: `jniLibs` 設置已在 Phase 1（T002b-T002e）完成，CMake/Gradle 配置已在 Phase 2.8（T022d-T022e）完成。
 
-- [ ] T072 更新 CMake 連結 `librknnrt.so` 於 `meeting-engine/src/main/cpp/CMakeLists.txt`
-  - 新增 `target_link_libraries` 連結 `${CMAKE_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}/librknnrt.so`
-- [ ] T073 更新 Gradle ABI/打包規則於 `meeting-engine/build.gradle.kts`
-  - 設定 `abiFilters "arm64-v8a"`
-  - 確認 `jniLibs.srcDirs` 包含 `src/main/jniLibs`
-- [ ] T074 補上效能驗證說明於 `quickstart.md`（延遲、記憶體使用量測方法）
-- [ ] T075 更新 README 說明統一介面使用方式
-- [ ] T076 撰寫 SDK 使用範例於 `app/src/main/java/.../MainActivity.kt`
+- [ ] T072 補上效能驗證說明於 `quickstart.md`（延遲、記憶體使用量測方法）
+- [ ] T073 更新 README 說明統一介面使用方式
+- [ ] T074 撰寫 SDK 使用範例於 `app/src/main/java/.../MainActivity.kt`
 
 ---
 

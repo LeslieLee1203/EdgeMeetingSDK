@@ -1,5 +1,22 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-01-20] - 規格一致性修正
+
+### 交叉文件一致性修正
+
+**CRITICAL 修正**
+- 修正 `quickstart.md` 模型路徑錯誤：`app/src/main/assets/models/` → `meeting-engine/src/main/assets/models/`
+  - 與 `tasks.md`、`plan.md` 保持一致
+
+**HIGH 修正**
+- 調整任務順序：將 CMake/Gradle 配置從 Phase 6 移至 Phase 2.8
+  - 新增 T022d：CMake 連結 `librknnrt.so`
+  - 新增 T022e：Gradle ABI/打包規則
+  - Phase 6 任務重新編號：T072-T074（原 T074-T076）
+  - 原因：Phase 3 的 WhisperAsrEngine 需要先完成 Native 依賴配置
+
+---
+
 ## [2026-01-20]
 
 ### 規格分析與修正（Specification Analysis）
