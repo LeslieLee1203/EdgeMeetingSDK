@@ -7,6 +7,7 @@
 - 新增模型部署策略：assets 打包 + 複製至 app-specific storage。
 - 新增 `ModelAssetManager` 任務（T006a/T006b）負責模型檔案複製。
 - 新增模型路徑慣例任務（T002a/T002b）。
+- 新增 TDD REFACTOR 階段任務（T007a, T006c, T023a/b, T030a/b, T036a/b）。
 - 新增 Whisper ASR 實作計劃與研究、資料模型、合約、快速開始文件（`specs/002-whisper-asr`）。
 - 新增 Whisper ASR 任務拆解（`specs/002-whisper-asr/tasks.md`）。
 
@@ -23,7 +24,12 @@
 - 調整 Whisper ASR 任務拆解以補齊離線與效能驗證（`specs/002-whisper-asr/tasks.md`）。
 - 更新模型路徑假設與部署策略於 `spec.md`、`plan.md`、`contracts/sdk.md`、`quickstart.md`。
 - 更新 T016 任務描述以包含 `ModelAssetManager` 整合。
+- 重構 Phase 2 任務順序：測試先於實作（T008 → T007, T006b → T006a），符合 TDD RED → GREEN 流程。
+- 為所有 User Story 新增 🔴🟢🔵 TDD 階段標記與 REFACTOR 步驟。
+- 拆分 T016 為 T016/T016a 以符合最小可驗證單元原則。
 - 調整 Whisper ASR 任務以明確對齊模型載入與啟停流程（`specs/002-whisper-asr/tasks.md`）。
+- 重構 Phase 3-5 任務結構：依功能切片組織，每個切片獨立完成 RED → GREEN → REFACTOR 循環。
+- 重新編號任務 T001-T073，依執行順序排列。
 - 更新 Whisper ASR 計畫文件的檔案結構描述（`specs/002-whisper-asr/plan.md`）。
 
 ## [2026-01-16]
