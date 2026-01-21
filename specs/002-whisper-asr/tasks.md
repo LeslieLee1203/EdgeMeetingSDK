@@ -194,11 +194,11 @@
 
 ### 3.3 WhisperAsrEngine 初始化與生命週期（TDD）
 
-- [ ] T029 🔴 RED: 測試 `WhisperAsrEngine.init` 載入模型於 C++ 單元測試（Google Test）
-- [ ] T030 🟢 GREEN: 實作 `WhisperAsrEngine.init` 於 `meeting-engine/src/main/cpp/asr/WhisperAsrEngine.cpp`
-- [ ] T031 🟢 GREEN: 實作 RKNN 模型載入於 `WhisperAsrEngine.cpp`
-- [ ] T032 🟢 GREEN: 實作 `WhisperAsrEngine.start`/`stop`（重置狀態/flush 剩餘音訊）
-- [ ] T033 🔵 REFACTOR: 檢視資源管理與錯誤處理
+- [X] T029 🔴 RED: 測試 `WhisperAsrEngine.init` 載入模型於 C++ 單元測試（Google Test）
+- [X] T030 🟢 GREEN: 實作 `WhisperAsrEngine.init` 於 `meeting-engine/src/main/cpp/asr/WhisperAsrEngine.cpp`
+- [X] T031 🟢 GREEN: 實作 RKNN 模型載入於 `WhisperAsrEngine.cpp`
+- [X] T032 🟢 GREEN: 實作 `WhisperAsrEngine.start`/`stop`（重置狀態/flush 剩餘音訊）
+- [X] T033 🔵 REFACTOR: 檢視資源管理與錯誤處理
   - 驗證 `release()` 正確釋放 RKNN context（rknn_destroy）
   - 驗證重複 `release()` 不會 crash（防禦性檢查）
   - 驗證 `init()` 後未 `release()` 的物件析構時自動清理

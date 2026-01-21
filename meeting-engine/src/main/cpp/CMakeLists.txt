@@ -64,9 +64,10 @@ add_library(
         AudioRecorder.h
         AudioProcessor.cpp
         AudioProcessor.h
-        # Phase 3 將加入 ASR 原始碼：
-        # asr/AsrEngine.cpp
-        # asr/WhisperAsrEngine.cpp
+        # Phase 3 ASR 原始碼
+        asr/AsrEngine.h
+        asr/WhisperAsrEngine.h
+        asr/WhisperAsrEngine.cpp
 )
 
 # 4. 連結 Library
@@ -104,7 +105,8 @@ if(TEST_SOURCES)
             # 需要測試的原始碼（排除 JNI 綁定層 native-lib.cpp）
             AudioRecorder.cpp
             AudioProcessor.cpp
-            # 未來會加入 asr/AsrEngine.cpp, asr/WhisperAsrEngine.cpp
+            # Phase 3 ASR 測試源碼
+            asr/WhisperAsrEngine.cpp
     )
 
     target_link_libraries(
