@@ -38,5 +38,11 @@ local.properties
 *.dll
 *.exe
 
+# ML Models (large binary files, download separately)
+meeting-engine/src/main/assets/models/
+*.rknn
+*.ggml
+*.bin
+
 # Secrets
 .env*

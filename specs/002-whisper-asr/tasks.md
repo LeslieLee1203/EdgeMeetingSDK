@@ -15,7 +15,7 @@
 
 > **⚠️ 阻擋條件**：未完成此節，後續所有需要模型的任務無法執行。
 
-- [ ] T000a 📦 取得 RKNN 模型檔
+- [x] T000a 📦 取得 RKNN 模型檔
   - 來源選項（擇一）：
     - 選項 A：從 [rknn-llm](https://github.com/airockchip/rknn-llm) 或 whisper.cpp RKNN export 取得預轉檔
     - 選項 B：自行使用 `rknn-toolkit2` 轉換 whisper.cpp GGML 模型
@@ -25,34 +25,34 @@
   - 放置路徑：`meeting-engine/src/main/assets/models/`
   - **驗證**：檔案大小 > 10MB，可被 `rknn_init()` 載入
 
-- [ ] T000b 📦 取得 RKNN Runtime Library
+- [x] T000b 📦 取得 RKNN Runtime Library
   - 來源：[RKNN SDK releases](https://github.com/airockchip/rknn-toolkit2/releases)
   - **版本要求**：`librknnrt.so` >= 1.6.0（對應 RK3588 NPU driver）
   - 放置路徑：`meeting-engine/src/main/jniLibs/arm64-v8a/librknnrt.so`
   - **驗證**：`file librknnrt.so` 顯示 `ELF 64-bit LSB shared object, ARM aarch64`
 
-- [ ] T000c 📝 更新 `quickstart.md` 模型取得說明
-  - 加入下載連結或轉換指令
+- [X] T000c 📝 更新 `quickstart.md` 模型取得說明
+  - 加入下載連結或轉換指令（已加入官方來源 https://github.com/airockchip/rknn_model_zoo/tree/main/examples/whisper）
   - 加入版本相容性矩陣（RKNN SDK vs RK3588 BSP 版本）
 
 ### 1.1 路徑常數與文件（TDD）
 
-- [ ] T001 🔴 RED: 測試 `ModelConstants` 常數於 `meeting-engine/src/test/java/com/edgemeeting/engine/ModelConstantsTest.kt`
+- [X] T001 🔴 RED: 測試 `ModelConstants` 常數於 `meeting-engine/src/test/java/com/edgemeeting/engine/ModelConstantsTest.kt`
   - 測試：`EXPECTED_MODEL_FILES` 包含預期檔名
   - 測試：`ASSETS_MODEL_DIR` = `"models"`
   - 測試：`RUNTIME_MODEL_DIR` = `"models"`
-- [ ] T002 🟢 GREEN: 建立 `ModelConstants.kt` 於 `meeting-engine/src/main/java/com/edgemeeting/engine/ModelConstants.kt`
+- [X] T002 🟢 GREEN: 建立 `ModelConstants.kt` 於 `meeting-engine/src/main/java/com/edgemeeting/engine/ModelConstants.kt`
   - `ASSETS_MODEL_DIR = "models"`
   - `RUNTIME_MODEL_DIR = "models"`
   - `EXPECTED_MODEL_FILES = listOf("whisper_encoder_base_20s.rknn", "whisper_decoder_base_20s.rknn")`
-- [ ] T002a 🔵 REFACTOR: 檢視常數命名與可擴充性
+- [X] T002a 🔵 REFACTOR: 檢視常數命名與可擴充性
 
 ### 1.2 檔案結構設置
 
-- [ ] T002b 建立 `meeting-engine/src/main/assets/models/.gitkeep` 佔位檔
-- [ ] T002c 建立 `meeting-engine/src/main/jniLibs/arm64-v8a/.gitkeep` 佔位檔
-- [ ] T002d 更新 `.gitignore`：忽略 `*.rknn` 與 `*.so`（避免大檔案進 repo）
-- [ ] T002e 更新 `specs/002-whisper-asr/quickstart.md`：
+- [X] T002b 建立 `meeting-engine/src/main/assets/models/.gitkeep` 佔位檔（跳過：模型檔已存在）
+- [X] T002c 建立 `meeting-engine/src/main/jniLibs/arm64-v8a/.gitkeep` 佔位檔（跳過：librknnrt.so 已存在）
+- [X] T002d 更新 `.gitignore`：忽略 `*.rknn` 與 `*.so`（避免大檔案進 repo）
+- [X] T002e 更新 `specs/002-whisper-asr/quickstart.md`：
   - 模型檔放置路徑：`meeting-engine/src/main/assets/models/*.rknn`
   - Native 依賴路徑：`meeting-engine/src/main/jniLibs/arm64-v8a/librknnrt.so`
   - 說明 Runtime 路徑由 `ModelAssetManager` 自動處理
