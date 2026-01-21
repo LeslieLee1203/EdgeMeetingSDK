@@ -65,8 +65,11 @@ class RkMeetingSession(
             }
 
             override fun onTranscript(segment: TranscriptSegment) {
-                // TODO: Phase 3 將實作轉錄結果處理
-                android.util.Log.d("JNI_CALLBACK", "Transcript: ${segment.text}")
+                // 將 native 層的轉錄結果發射到 transcriptFlow
+                val emitted = transcriptFlowInternal.tryEmit(listOf(segment))
+                if (!emitted) {
+                    android.util.Log.w("JNI_CALLBACK", "Drop transcript: ${segment.id}")
+                }
             }
 
             override fun onError(code: Int, message: String) {

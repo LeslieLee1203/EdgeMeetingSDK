@@ -1,5 +1,36 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-01-21] - Phase 3.5 T038/T045 TDD 完成
+
+### T045 GREEN 階段完成 ✓
+
+**onTranscript callback 接入 transcriptFlow**
+- 修改 `RkMeetingSession.kt` 的 `onTranscript` callback
+- 使用 `transcriptFlowInternal.tryEmit(listOf(segment))` 發射 segment
+- 57 個測試全部通過
+
+### T038 RED 階段完成 ✓
+
+**onTranscript callback 整合測試**
+- 新增 `RkMeetingSessionTranscriptTest.kt` 三個測試案例：
+  - `onTranscript callback should emit to transcriptFlow`
+  - `multiple onTranscript callbacks should emit in order`
+  - `high frequency onTranscript should not cause memory issues`
+- 使用 `MarkedTranscriptGenerator` 區分來自 generator 和 callback 的 segments
+
+### 測試環境修正
+
+- 修正 `build.gradle.kts` 加入 `testOptions.unitTests.isReturnDefaultValues = true`
+  - 解決 Android SDK 類別（如 `android.util.Log`）在 JVM 單元測試中無法使用的問題
+
+### 任務調整
+
+- T038 測試項目調整：
+  - 移除「靜音分段規則」測試（屬於 C++ 層責任，移至 T039-T040）
+  - 改為測試 `FakeAsrEngine.triggerNextTranscript()` → `transcriptFlow` 整合
+
+---
+
 ## [2026-01-20] - 規格一致性修正
 
 ### 交叉文件一致性修正

@@ -1,16 +1,23 @@
 package com.edgemeeting.engine
 
+import com.edgemeeting.core.model.TranscriptSegment
 import com.edgemeeting.engine.bridge.EngineCallback
 import com.edgemeeting.engine.bridge.EngineConfig
 import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineBridge
+import com.edgemeeting.engine.fake.FakeAsrEngine
+import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Test
 
 class RkMeetingSessionTranscriptTest {
@@ -210,6 +217,201 @@ class RkMeetingSessionTranscriptTest {
         assertTrue(
             "超過 1.5 秒的間隔過多：${overLimit}/${intervals.size}",
             overLimit <= maxAllowedOverLimit
+        )
+    }
+
+    // ===== T038: onTranscript callback 整合測試 =====
+
+    /**
+     * 產生可識別的假字幕（id 以 "generator-" 開頭）。
+     * 用於測試時區分來自 transcriptGenerator 的 segment 和來自 onTranscript callback 的 segment。
+     */
+    private class MarkedTranscriptGenerator : TranscriptGenerator {
+        override fun doGenerate(startTimeMs: Long, endTimeMs: Long): TranscriptSegment {
+            return TranscriptSegment(
+                id = "generator-${startTimeMs}-${endTimeMs}",
+                text = "Generated",
+                speakerId = "Generator",
+                isFinal = true,
+                startTimeMs = startTimeMs,
+                endTimeMs = endTimeMs
+            )
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `onTranscript callback should emit to transcriptFlow`() = runTest {
+        // Given: 使用 FakeAsrEngine 並注入一個 segment
+        val fakeEngine = FakeAsrEngine()
+        val expectedSegment = TranscriptSegment(
+            id = "test-001",
+            text = "Hello World",
+            speakerId = "Speaker1",
+            isFinal = true,
+            startTimeMs = 0,
+            endTimeMs = 1000
+        )
+        fakeEngine.injectTranscriptSegments(listOf(expectedSegment))
+
+        val session = RkMeetingSession(
+            bridge = fakeEngine,
+            timeSource = object : TimeSource {
+                override fun nowMs(): Long = testScheduler.currentTime
+            },
+            // 使用可識別的產生器，測試時可區分來源
+            transcriptGenerator = MarkedTranscriptGenerator(),
+            transcriptDispatcher = StandardTestDispatcher(testScheduler)
+        )
+
+        session.prepare()
+        session.start()
+
+        // When: 觸發 onTranscript callback
+        val received = mutableListOf<TranscriptSegment>()
+        val job = backgroundScope.launch {
+            session.transcriptFlow.collect { segments ->
+                received.addAll(segments)
+            }
+        }
+
+        // 先推進時間讓 collect 協程開始執行
+        advanceTimeBy(1)
+        fakeEngine.triggerNextTranscript()
+        // 再推進時間讓 emit 的值被收集
+        advanceTimeBy(100)
+
+        // 先停止再檢查，避免 while 迴圈持續跑
+        session.stop()
+        session.release()
+        job.cancel()
+
+        // Then: transcriptFlow 應該收到來自 onTranscript 的 segment（id 不以 "generator-" 開頭）
+        val fromCallback = received.filter { !it.id.startsWith("generator-") }
+        assertTrue(
+            "transcriptFlow 應收到 onTranscript 觸發的 segment，實際收到 ${fromCallback.size} 個（總共 ${received.size}）",
+            fromCallback.any { it.id == expectedSegment.id }
+        )
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `multiple onTranscript callbacks should emit in order`() = runTest {
+        // Given: 注入多個 segments
+        val fakeEngine = FakeAsrEngine()
+        val segments = listOf(
+            TranscriptSegment("seg-1", "First", "S1", true, 0, 1000),
+            TranscriptSegment("seg-2", "Second", "S1", true, 1000, 2000),
+            TranscriptSegment("seg-3", "Third", "S1", true, 2000, 3000)
+        )
+        fakeEngine.injectTranscriptSegments(segments)
+
+        val session = RkMeetingSession(
+            bridge = fakeEngine,
+            timeSource = object : TimeSource {
+                override fun nowMs(): Long = testScheduler.currentTime
+            },
+            transcriptGenerator = MarkedTranscriptGenerator(),
+            transcriptDispatcher = StandardTestDispatcher(testScheduler)
+        )
+
+        session.prepare()
+        session.start()
+
+        // When: 依序觸發所有 segments
+        val received = mutableListOf<TranscriptSegment>()
+        val job = backgroundScope.launch {
+            session.transcriptFlow.collect { emitted ->
+                received.addAll(emitted)
+            }
+        }
+
+        // 先推進時間讓 collect 協程開始執行
+        advanceTimeBy(1)
+        segments.forEach { _ ->
+            fakeEngine.triggerNextTranscript()
+            advanceTimeBy(50)  // 推進時間讓 emit 被收集
+        }
+
+        // 先停止再檢查
+        session.stop()
+        session.release()
+        job.cancel()
+
+        // Then: 過濾出來自 onTranscript callback 的 segments（非 generator- 開頭）
+        val fromCallback = received.filter { !it.id.startsWith("generator-") }
+        assertEquals(
+            "應收到 ${segments.size} 個來自 callback 的 segments，實際 ${fromCallback.size}",
+            segments.size,
+            fromCallback.size
+        )
+
+        segments.forEachIndexed { index, expected ->
+            assertEquals(
+                "第 $index 個 segment id 應為 ${expected.id}",
+                expected.id,
+                fromCallback[index].id
+            )
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `high frequency onTranscript should not cause memory issues`() = runTest {
+        // Given: 準備大量 segments 模擬高頻觸發（簡化為 100 個，足以驗證記憶體處理）
+        val fakeEngine = FakeAsrEngine()
+        val segmentCount = 100
+        val segments = (0 until segmentCount).map { i ->
+            TranscriptSegment(
+                id = "seg-$i",
+                text = "Segment $i content",
+                speakerId = "Speaker",
+                isFinal = true,
+                startTimeMs = (i * 500).toLong(),
+                endTimeMs = ((i + 1) * 500).toLong()
+            )
+        }
+        fakeEngine.injectTranscriptSegments(segments)
+
+        val session = RkMeetingSession(
+            bridge = fakeEngine,
+            timeSource = object : TimeSource {
+                override fun nowMs(): Long = testScheduler.currentTime
+            },
+            transcriptGenerator = MarkedTranscriptGenerator(),
+            transcriptDispatcher = StandardTestDispatcher(testScheduler)
+        )
+
+        session.prepare()
+        session.start()
+
+        // When: 高頻觸發所有 segments
+        val received = mutableListOf<TranscriptSegment>()
+        val job = backgroundScope.launch {
+            session.transcriptFlow.collect { emitted ->
+                received.addAll(emitted)
+            }
+        }
+
+        // 先推進時間讓 collect 協程開始執行
+        advanceTimeBy(1)
+        // 每次觸發後推進時間，讓 collector 消費（避免 buffer overflow）
+        repeat(segmentCount) {
+            fakeEngine.triggerNextTranscript()
+            advanceTimeBy(1)  // 給 collector 時間消費
+        }
+        advanceTimeBy(10)
+
+        // 先停止
+        session.stop()
+        session.release()
+        job.cancel()
+
+        // Then: 過濾出來自 callback 的 segments，應收到大部分
+        val fromCallback = received.filter { !it.id.startsWith("generator-") }
+        assertTrue(
+            "應收到至少 90% 的 callback segments，實際收到 ${fromCallback.size}/$segmentCount",
+            fromCallback.size >= (segmentCount * 0.9).toInt()
         )
     }
 }

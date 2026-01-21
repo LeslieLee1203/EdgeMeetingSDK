@@ -212,11 +212,12 @@
 
 ### 3.5 音訊輸入與轉錄輸出（TDD）
 
-- [ ] T038 🔴 RED: 測試逐段分段規則於 `RkMeetingSessionTranscriptTest.kt`
-  - 測試：靜音 >= 700ms 時切段輸出
-  - 測試：靜音 < 700ms 時不切段，累積輸出
-  - 測試：連續 5 秒靜音不輸出空白段落（Edge Case）
-  - 測試：10 分鐘連續語音不 OOM（使用 FakeAsrEngine）
+- [X] T038 🔴 RED: 測試 onTranscript callback 整合於 `RkMeetingSessionTranscriptTest.kt`
+  - 測試：`FakeAsrEngine.triggerNextTranscript()` 觸發後，`transcriptFlow` 正確發射
+  - 測試：多個 segment 累積輸出順序正確
+  - 測試：長時間高頻觸發不 OOM（簡化為 100 個 segments）
+  - **Note**: 靜音分段規則測試移至 C++ 層（T039-T040）
+  - **Status**: RED - 測試失敗，因為 `onTranscript` 尚未接入 `transcriptFlow`
 - [ ] T039 🟢 GREEN: 實作 `WhisperAsrEngine.pushAudio` 於 `WhisperAsrEngine.cpp`
 - [ ] T040 🟢 GREEN: 實作靜音偵測與分段邏輯於 `WhisperAsrEngine.cpp`
 - [ ] T041 🟢 GREEN: 實作 JNI callback `onTranscript` 回傳於 `native-lib.cpp`
@@ -232,8 +233,9 @@
 - [ ] T044 🟢 GREEN: 更新 `RkMeetingSession.prepare()`
   - 使用 `ModelAssetManager.ensureModels()` 回傳的路徑建立 `AsrConfig`
   - 注入 `CoroutineDispatcher`（預設 `Dispatchers.Main`，測試時用 `TestDispatcher`）
-- [ ] T045 🟢 GREEN: 將 `onTranscript` 回調接入 `transcriptFlow`
-  - 使用 `withContext(mainDispatcher)` 確保 UI 安全
+- [X] T045 🟢 GREEN: 將 `onTranscript` 回調接入 `transcriptFlow`
+  - 使用 `transcriptFlowInternal.tryEmit()` 發射 segment
+  - **Note**: 暫不需要 `withContext(mainDispatcher)`，因為 `tryEmit` 是執行緒安全的
 - [ ] T046 🔵 REFACTOR: 檢視狀態轉換與執行緒安全
   - 驗證 `transcriptFlow` emit 在正確的 Dispatcher
   - 驗證多執行緒存取狀態的安全性

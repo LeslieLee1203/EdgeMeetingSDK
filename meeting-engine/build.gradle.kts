@@ -82,6 +82,17 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
+    // 【關鍵設定 6】單元測試配置
+    // 為什麼需要 returnDefaultValues：
+    // 1. Android SDK 類別（如 android.util.Log）在 JVM 單元測試中沒有實作
+    // 2. 設定 true 後，未 mock 的 Android 方法會回傳預設值（0, null, false 等）
+    // 3. 這讓我們能在不使用 Robolectric 的情況下執行基本單元測試
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
