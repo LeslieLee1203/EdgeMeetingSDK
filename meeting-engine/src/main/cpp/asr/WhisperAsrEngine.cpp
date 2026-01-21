@@ -314,14 +314,23 @@ bool WhisperAsrEngine::detectSilence(const int16_t* pcm, size_t samples) {
 }
 
 void WhisperAsrEngine::emitTranscript(const std::string& text, long startMs, long endMs) {
-    // 為什麼需要此方法：將轉錄結果回傳至 Kotlin 層
-    // Phase 3.4 將實作 JNI callback 整合
-
     segmentCounter_++;
+
+    // 生成 segment ID
+    std::string segmentId = "seg-" + std::to_string(segmentCounter_);
 
     LOGI("Transcript #%d: %s (start=%ld, end=%ld)",
          segmentCounter_, text.c_str(), startMs, endMs);
 
-    // TODO: Phase 3.4 實作 JNI callback
-    // jniCallback->onTranscript(segment);
+    // T041: 呼叫 callback（如果已設定）
+    if (transcriptCallback_) {
+        transcriptCallback_(
+            segmentId,
+            text,
+            "Unknown",  // speakerId（Phase 4 實作說話者識別）
+            true,       // isFinal
+            startMs,
+            endMs
+        );
+    }
 }

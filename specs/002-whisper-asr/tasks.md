@@ -218,11 +218,18 @@
   - 測試：長時間高頻觸發不 OOM（簡化為 100 個 segments）
   - **Note**: 靜音分段規則測試移至 C++ 層（T039-T040）
   - **Status**: RED - 測試失敗，因為 `onTranscript` 尚未接入 `transcriptFlow`
-- [ ] T039 🟢 GREEN: 實作 `WhisperAsrEngine.pushAudio` 於 `WhisperAsrEngine.cpp`
-- [ ] T040 🟢 GREEN: 實作靜音偵測與分段邏輯於 `WhisperAsrEngine.cpp`
-- [ ] T041 🟢 GREEN: 實作 JNI callback `onTranscript` 回傳於 `native-lib.cpp`
-  - **執行緒**：callback 在 native background thread 執行，Kotlin 層需轉發至 Main
-- [ ] T042 🔵 REFACTOR: 檢視音訊緩衝與記憶體使用
+- [X] T039 🟢 GREEN: 實作 `WhisperAsrEngine.pushAudio` 於 `WhisperAsrEngine.cpp`
+  - 已在 Phase 2 實作，本階段新增 AudioProcessor → WhisperAsrEngine 音訊傳遞
+  - 在 `AudioProcessor.cpp` 中將 float 音訊轉換為 int16_t 並呼叫 `pushAudio()`
+- [X] T040 🟢 GREEN: 實作靜音偵測與分段邏輯於 `WhisperAsrEngine.cpp`
+  - 已在 Phase 2 實作，靜音偵測使用 RMS 門檻（700ms 靜音切段）
+- [X] T041 🟢 GREEN: 實作 JNI callback `onTranscript` 回傳於 `native-lib.cpp`
+  - 新增 `TranscriptCallback` 型別定義於 `WhisperAsrEngine.h`
+  - 在 `native-lib.cpp` 設定 callback lambda 呼叫 JNI `onNativeTranscript`
+  - **執行緒**：callback 在 native background thread 執行，Kotlin 層透過 `tryEmit` 轉發
+- [X] T042 🔵 REFACTOR: 檢視音訊緩衝與記憶體使用
+  - AudioProcessor 使用固定大小 buffer（CHUNK_SIZE = 2560）
+  - WhisperAsrEngine 有 MAX_BUFFER_SAMPLES 限制防止 OOM
 
 ### 3.6 RkMeetingSession 整合（TDD）
 

@@ -30,6 +30,7 @@ static std::unique_ptr<AudioRecorder> gRecorder = nullptr;
 static std::unique_ptr<AudioProcessor> gProcessor = nullptr;
 static std::unique_ptr<AsrEngine> gAsrEngine = nullptr;  // Phase 3: ASR 引擎
 static JavaVM* gJavaVM = nullptr; // 儲存 JVM 指標
+static jobject gCallbackObj = nullptr;  // T041: 全域 callback 物件（用於 ASR 回調）
 
 #define LOG_TAG "native-lib"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -118,16 +119,108 @@ JNIEXPORT void JNICALL
 Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeSetCallback(
         JNIEnv* env, jobject thiz, jobject callback) {
 
+    // T041: 清理舊的全域 callback
+    if (gCallbackObj) {
+        env->DeleteGlobalRef(gCallbackObj);
+        gCallbackObj = nullptr;
+    }
+
     // 如果之前有 Recorder/Processor，先清掉
     if (gProcessor) gProcessor->stop();
     gProcessor.reset();
     gRecorder.reset(); // Recorder 也重建比較保險
+
+    // T041: 儲存 callback 物件為全域引用
+    gCallbackObj = env->NewGlobalRef(thiz);
 
     // 建立新物件
     gRecorder = std::make_unique<AudioRecorder>();
 
     // 這裡傳入的是 `thiz` (JniEngineBridge 實例)，因為我們要呼叫它的 onNativeAudioData
     gProcessor = std::make_unique<AudioProcessor>(gRecorder.get(), gJavaVM, thiz);
+
+    // T039: 設定 ASR 引擎給 AudioProcessor
+    if (gAsrEngine) {
+        gProcessor->setAsrEngine(gAsrEngine.get());
+
+        // T041: 設定 ASR 引擎的 transcript callback
+        auto* whisperEngine = dynamic_cast<WhisperAsrEngine*>(gAsrEngine.get());
+        if (whisperEngine) {
+            whisperEngine->setTranscriptCallback([](
+                const std::string& segmentId,
+                const std::string& text,
+                const std::string& speakerId,
+                bool isFinal,
+                long startMs,
+                long endMs
+            ) {
+                // 在背景執行緒呼叫 JNI
+                if (!gJavaVM || !gCallbackObj) {
+                    LOGE("JNI callback: VM or callback object is null");
+                    return;
+                }
+
+                JNIEnv* env;
+                bool needDetach = false;
+
+                // 嘗試取得當前執行緒的 JNIEnv
+                int getEnvResult = gJavaVM->GetEnv((void**)&env, JNI_VERSION_1_6);
+                if (getEnvResult == JNI_EDETACHED) {
+                    // 執行緒未附加，需要 attach
+                    if (gJavaVM->AttachCurrentThread(&env, nullptr) != JNI_OK) {
+                        LOGE("JNI callback: Failed to attach thread");
+                        return;
+                    }
+                    needDetach = true;
+                } else if (getEnvResult != JNI_OK) {
+                    LOGE("JNI callback: Failed to get JNIEnv");
+                    return;
+                }
+
+                // 找到 onNativeTranscript 方法（7 個參數：id, text, speakerId, isFinal, startMs, endMs, languageCode）
+                jclass bridgeClass = env->GetObjectClass(gCallbackObj);
+                jmethodID methodId = env->GetMethodID(
+                    bridgeClass,
+                    "onNativeTranscript",
+                    "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZJJLjava/lang/String;)V"
+                );
+
+                if (methodId) {
+                    jstring jSegmentId = env->NewStringUTF(segmentId.c_str());
+                    jstring jText = env->NewStringUTF(text.c_str());
+                    jstring jSpeakerId = env->NewStringUTF(speakerId.c_str());
+                    // languageCode 暫時傳 null（Phase 4 實作語言偵測）
+                    jstring jLanguageCode = nullptr;
+
+                    env->CallVoidMethod(
+                        gCallbackObj,
+                        methodId,
+                        jSegmentId,
+                        jText,
+                        jSpeakerId,
+                        static_cast<jboolean>(isFinal),
+                        static_cast<jlong>(startMs),
+                        static_cast<jlong>(endMs),
+                        jLanguageCode
+                    );
+
+                    env->DeleteLocalRef(jSegmentId);
+                    env->DeleteLocalRef(jText);
+                    env->DeleteLocalRef(jSpeakerId);
+                    // jLanguageCode 是 null，不需要 DeleteLocalRef
+                } else {
+                    LOGE("JNI callback: Method onNativeTranscript not found");
+                }
+
+                env->DeleteLocalRef(bridgeClass);
+
+                if (needDetach) {
+                    gJavaVM->DetachCurrentThread();
+                }
+            });
+            LOGI("ASR transcript callback set");
+        }
+    }
 }
 
 JNIEXPORT void JNICALL

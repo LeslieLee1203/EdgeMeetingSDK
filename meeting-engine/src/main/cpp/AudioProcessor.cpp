@@ -74,6 +74,9 @@ void AudioProcessor::workerLoop() {
     const int CHUNK_SIZE = 2560;
     std::vector<float> readBuffer(CHUNK_SIZE);
 
+    // T039: 準備 int16_t buffer 供 ASR 引擎使用
+    std::vector<int16_t> pcmBuffer(CHUNK_SIZE);
+
     while (isRunning) {
         // 從 RingBuffer 讀取資料
         // 如果 AudioRecorder 還沒 start，這裡會讀到 0
@@ -90,6 +93,19 @@ void AudioProcessor::workerLoop() {
 
             // 釋放 LocalRef (很重要！不然迴圈跑久了會 OOM)
             env->DeleteLocalRef(javaArray);
+
+            // T039: 將音訊傳給 ASR 引擎（如果已設定）
+            if (asrEngine) {
+                // 轉換 float [-1.0, 1.0] → int16_t [-32768, 32767]
+                for (size_t i = 0; i < readCount; i++) {
+                    float sample = readBuffer[i];
+                    // Clamp to [-1.0, 1.0]
+                    if (sample > 1.0f) sample = 1.0f;
+                    if (sample < -1.0f) sample = -1.0f;
+                    pcmBuffer[i] = static_cast<int16_t>(sample * 32767.0f);
+                }
+                asrEngine->pushAudio(pcmBuffer.data(), readCount);
+            }
         } else {
             // Buffer 空了，稍微睡一下避免 CPU 100%
             std::this_thread::sleep_for(std::chrono::milliseconds(10));

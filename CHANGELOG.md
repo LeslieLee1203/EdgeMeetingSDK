@@ -1,5 +1,28 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-01-21] - Phase 3.5 T038-T042 完成
+
+### T039-T042 C++ 層實作 ✓
+
+**T039: AudioProcessor → WhisperAsrEngine 音訊傳遞**
+- 修改 `AudioProcessor.h` 新增 `setAsrEngine()` 方法
+- 修改 `AudioProcessor.cpp` 在 workerLoop 中將 float 轉換為 int16_t 並呼叫 `pushAudio()`
+
+**T040: 靜音偵測與分段邏輯**
+- 已在 Phase 2 實作於 `WhisperAsrEngine.cpp`
+- 使用 RMS 門檻偵測靜音，700ms 靜音自動切段
+
+**T041: JNI callback onTranscript**
+- 新增 `TranscriptCallback` 型別定義於 `WhisperAsrEngine.h`
+- 在 `native-lib.cpp` 設定 callback lambda 呼叫 JNI `onNativeTranscript`
+- 處理執行緒 attach/detach 確保 JNI 呼叫安全
+
+**T042: REFACTOR 音訊緩衝與記憶體**
+- AudioProcessor 使用固定大小 buffer（CHUNK_SIZE = 2560）
+- WhisperAsrEngine 有 MAX_BUFFER_SAMPLES（10 分鐘）限制防止 OOM
+
+---
+
 ## [2026-01-21] - Phase 3.5 T038/T045 TDD 完成
 
 ### T045 GREEN 階段完成 ✓

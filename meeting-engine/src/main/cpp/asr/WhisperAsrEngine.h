@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <functional>
 
 // RKNN 前向宣告（避免在 header 中 include RKNN headers）
 // 為什麼使用前向宣告：減少編譯依賴，加快編譯速度
@@ -38,6 +39,17 @@ typedef void* rknn_context;
  *      ↓
  *   release()                   ← 釋放 RKNN context
  */
+// T041: Transcript callback 型別定義
+// 參數：segmentId, text, speakerId, isFinal, startMs, endMs
+using TranscriptCallback = std::function<void(
+    const std::string& segmentId,
+    const std::string& text,
+    const std::string& speakerId,
+    bool isFinal,
+    long startMs,
+    long endMs
+)>;
+
 class WhisperAsrEngine : public AsrEngine {
 public:
     WhisperAsrEngine();
@@ -46,6 +58,11 @@ public:
     // 禁止拷貝與賦值（RKNN context 不可複製）
     WhisperAsrEngine(const WhisperAsrEngine&) = delete;
     WhisperAsrEngine& operator=(const WhisperAsrEngine&) = delete;
+
+    // T041: 設定轉錄回調（用於傳遞結果到 JNI 層）
+    void setTranscriptCallback(TranscriptCallback callback) {
+        transcriptCallback_ = std::move(callback);
+    }
 
     /**
      * 初始化 Whisper ASR 引擎
@@ -139,6 +156,9 @@ private:
 
     // 段落計數（用於生成 TranscriptSegment.id）
     int segmentCounter_;
+
+    // T041: 轉錄回調
+    TranscriptCallback transcriptCallback_;
 
     // 輔助方法
 
