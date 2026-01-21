@@ -164,33 +164,33 @@
 
 ### 3.1 TranscriptSegment 資料模型（TDD）
 
-- [ ] T023 🔴 RED: 測試 `TranscriptSegment` 新欄位（startMs, endMs, languageCode）於 `meeting-core/src/test/java/com/edgemeeting/core/TranscriptSegmentTest.kt`
-- [ ] T024 🟢 GREEN: 更新 `TranscriptSegment` 欄位於 `meeting-core/src/main/java/com/edgemeeting/core/model/TranscriptSegment.kt`
-- [ ] T025 🔵 REFACTOR: 檢視欄位命名與驗證邏輯
+- [X] T023 🔴 RED: 測試 `TranscriptSegment` 新欄位（startMs, endMs, languageCode）於 `meeting-core/src/test/java/com/edgemeeting/core/TranscriptSegmentTest.kt`
+- [X] T024 🟢 GREEN: 更新 `TranscriptSegment` 欄位於 `meeting-core/src/main/java/com/edgemeeting/core/model/TranscriptSegment.kt`
+- [X] T025 🔵 REFACTOR: 檢視欄位命名與驗證邏輯
 
 ### 3.2 Native AsrEngine 抽象層（TDD）
 
 > **依賴**：T022a-T022c（Google Test 框架已在 Phase 2.7 完成設置）
 
-- [ ] T026 🔴 RED: 建立 `AsrEngine` 介面測試骨架於 `meeting-engine/src/main/cpp/test/AsrEngineTest.cpp`
+- [X] T026 🔴 RED: 建立 `AsrEngine` 介面測試骨架於 `meeting-engine/src/main/cpp/test/AsrEngineTest.cpp`
   - 使用 Google Test mock 驗證介面契約
-- [ ] T027 🟢 GREEN: 建立 `AsrEngine.h` 抽象類於 `meeting-engine/src/main/cpp/asr/AsrEngine.h`（含 init/start/pushAudio/stop/release）
-- [ ] T028 🔵 REFACTOR: 檢視介面最小化
+- [X] T027 🟢 GREEN: 建立 `AsrEngine.h` 抽象類於 `meeting-engine/src/main/cpp/asr/AsrEngine.h`（含 init/start/pushAudio/stop/release）
+- [X] T028 🔵 REFACTOR: 檢視介面最小化
 
 ### 3.2a FakeAsrEngine for Kotlin Testing（TDD）
 
 > **Purpose**: 提供 Kotlin 層整合測試用的 Fake 實作，無需 RKNN 硬體即可在 CI 執行。
 
-- [ ] T028a 🔴 RED: 測試 `FakeAsrEngine` 行為於 `meeting-engine/src/test/java/com/edgemeeting/engine/fake/FakeAsrEngineTest.kt`
+- [X] T028a 🔴 RED: 測試 `FakeAsrEngine` 行為於 `meeting-engine/src/test/java/com/edgemeeting/engine/fake/FakeAsrEngineTest.kt`
   - 測試：注入 `TranscriptSegment` 後，`pushAudio()` 觸發 callback
   - 測試：注入錯誤碼後，`init()` 回傳對應 `BridgeResult.Failure`
   - 測試：呼叫順序驗證（init → start → stop → release）
-- [ ] T028b 🟢 GREEN: 建立 `FakeAsrEngine` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/fake/FakeAsrEngine.kt`
+- [X] T028b 🟢 GREEN: 建立 `FakeAsrEngine` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/fake/FakeAsrEngine.kt`
   - 實作 `EngineBridge` 介面（Kotlin Fake，用於整合測試）
   - 支援注入預設 `TranscriptSegment` 回傳序列
   - 支援模擬錯誤情境（`ERR_MODEL_NOT_FOUND`, `ERR_MODEL_LOAD_FAILED`）
   - 支援驗證 `init`/`start`/`stop`/`release` 呼叫順序
-- [ ] T028c 🔵 REFACTOR: 檢視 Fake 介面易用性與測試可讀性
+- [X] T028c 🔵 REFACTOR: 檢視 Fake 介面易用性與測試可讀性
 
 ### 3.3 WhisperAsrEngine 初始化與生命週期（TDD）
 
