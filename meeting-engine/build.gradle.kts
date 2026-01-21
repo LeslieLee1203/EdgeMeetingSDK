@@ -27,6 +27,15 @@ android {
                 cppFlags("-std=c++17")
             }
         }
+
+        // 【關鍵設定 1.1】ABI 過濾器（只編譯 arm64-v8a）
+        // 為什麼只編譯 arm64-v8a：
+        // 1. RK3588 是 ARM64 架構
+        // 2. RKNN Runtime 只提供 arm64-v8a 版本
+        // 3. 減少 APK 大小與編譯時間
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     // 【關鍵設定 2】開啟 Prefab (自動處理 Native 依賴的神器)
@@ -47,6 +56,16 @@ android {
     packaging {
         jniLibs {
             pickFirsts.add("**/libc++_shared.so")
+            // 確保 librknnrt.so 被打包（雖然預設會打包 jniLibs，但明確聲明更清晰）
+            // pickFirsts.add("**/librknnrt.so")  // 若有多個來源的 librknnrt.so 才需要
+        }
+    }
+
+    // 【關鍵設定 5】明確指定 jniLibs 來源目錄（確保 librknnrt.so 被打包）
+    // Android Gradle Plugin 預設會包含 src/main/jniLibs，這裡明確聲明以提高可讀性
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDirs("src/main/jniLibs")
         }
     }
 
