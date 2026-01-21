@@ -252,9 +252,14 @@
 
 ### 3.7 啟停轉錄流程（TDD）
 
-- [ ] T047 🔴 RED: 測試 `start()`/`stop()` 啟停 ASR 於 `RkMeetingSessionTest.kt`
-- [ ] T048 🟢 GREEN: 更新 `start()`/`stop()` 控制 ASR 引擎（呼叫 AsrEngine.start/stop）
-- [ ] T049 🔵 REFACTOR: 檢視生命週期管理
+- [X] T047 🔴 RED: 測試 `start()`/`stop()` 啟停 ASR 於 `RkMeetingSessionTest.kt`
+  - 新增 5 個測試案例驗證啟停流程與生命週期
+  - 使用 `FakeAsrEngine` 驗證 `isRecording()` 狀態變化
+- [X] T048 🟢 GREEN: 更新 `start()`/`stop()` 控制 ASR 引擎（呼叫 AsrEngine.start/stop）
+  - **結論**：現有實作已滿足測試需求，無需修改
+- [X] T049 🔵 REFACTOR: 檢視生命週期管理
+  - 修正 `release()` 在 Listening 狀態時先呼叫 `bridge.stopRecording()`
+  - 確保 native 層資源正確釋放
 
 ### 3.8 驗收測試（非 TDD）
 

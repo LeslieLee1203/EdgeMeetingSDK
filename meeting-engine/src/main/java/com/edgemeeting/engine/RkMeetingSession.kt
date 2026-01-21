@@ -239,6 +239,11 @@ class RkMeetingSession(
     }
 
     override fun release() {
+        // 如果還在錄音，先停止錄音（確保 native 層正確釋放）
+        if (_state.value is MeetingState.Listening) {
+            bridge.stopRecording()
+        }
+
         // 釋放前先停止字幕輸出，避免背景協程持續跑
         stopTranscriptLoop()
 

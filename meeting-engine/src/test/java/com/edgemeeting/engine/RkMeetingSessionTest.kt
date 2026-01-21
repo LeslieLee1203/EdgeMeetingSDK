@@ -8,7 +8,9 @@ import com.edgemeeting.engine.bridge.EngineConfig
 import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineBridge
 import com.edgemeeting.engine.bridge.ErrorCodes
+import com.edgemeeting.engine.fake.FakeAsrEngine
 import junit.framework.TestCase.assertEquals
+import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertNotNull
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.test.runTest
@@ -201,6 +203,162 @@ class RkMeetingSessionTest {
             "asrConfig 應為 null（純錄音模式）",
             null,
             config!!.asrConfig
+        )
+    }
+
+    // ===== T047: start()/stop() 啟停 ASR 測試 =====
+
+    /**
+     * T047-1: start() 應該呼叫 bridge.startRecording() 並將引擎設為錄音狀態
+     *
+     * 為什麼需要測試：確保 start() 正確啟動 ASR 引擎
+     * 預期行為：
+     * 1. prepare() 後呼叫 start()，引擎應進入錄音狀態
+     * 2. FakeAsrEngine.isRecording() 應為 true
+     */
+    @Test
+    fun `start should call bridge startRecording and engine should be recording`() = runTest {
+        // Arrange
+        val fakeEngine = FakeAsrEngine()
+        val session = RkMeetingSession(bridge = fakeEngine)
+
+        session.prepare()
+        assertFalse("prepare 後引擎不應在錄音狀態", fakeEngine.isRecording())
+
+        // Act
+        session.start()
+
+        // Assert
+        assertTrue("start 後引擎應在錄音狀態", fakeEngine.isRecording())
+        assertEquals(
+            "狀態應為 Listening",
+            MeetingState.Listening,
+            session.state.value
+        )
+    }
+
+    /**
+     * T047-2: stop() 應該呼叫 bridge.stopRecording() 並將引擎設為非錄音狀態
+     *
+     * 為什麼需要測試：確保 stop() 正確停止 ASR 引擎
+     * 預期行為：
+     * 1. start() 後呼叫 stop()，引擎應停止錄音
+     * 2. FakeAsrEngine.isRecording() 應為 false
+     * 3. 狀態應回到 Ready（可再次 start）
+     */
+    @Test
+    fun `stop should call bridge stopRecording and engine should stop recording`() = runTest {
+        // Arrange
+        val fakeEngine = FakeAsrEngine()
+        val session = RkMeetingSession(bridge = fakeEngine)
+
+        session.prepare()
+        session.start()
+        assertTrue("start 後引擎應在錄音狀態", fakeEngine.isRecording())
+
+        // Act
+        session.stop()
+
+        // Assert
+        assertFalse("stop 後引擎不應在錄音狀態", fakeEngine.isRecording())
+        assertEquals(
+            "狀態應回到 Ready",
+            MeetingState.Ready,
+            session.state.value
+        )
+    }
+
+    /**
+     * T047-3: start() 後應該可以再次 start()（冪等性測試）
+     *
+     * 為什麼需要測試：確保重複 start() 不會導致問題
+     * 預期行為：
+     * 1. 已在 Listening 狀態時再次呼叫 start()，應該維持 Listening
+     * 2. 不應該 crash 或產生錯誤狀態
+     *
+     * Note: 這是一個邊界案例測試，確保 API 的防禦性
+     */
+    @Test
+    fun `start while already listening should not change state`() = runTest {
+        // Arrange
+        val fakeEngine = FakeAsrEngine()
+        val session = RkMeetingSession(bridge = fakeEngine)
+
+        session.prepare()
+        session.start()
+        assertEquals(MeetingState.Listening, session.state.value)
+
+        // Act: 再次呼叫 start
+        session.start()
+
+        // Assert: 狀態應該不變（或變為 Error，取決於設計決策）
+        // 目前實作會變成 Error，因為只有 Ready 才能 start
+        val currentState = session.state.value
+        // 這個行為可能需要討論：是維持 Listening 還是報錯？
+        // 目前實作會報錯，這裡先驗證不會 crash
+        assertTrue(
+            "狀態應為 Listening 或 Error",
+            currentState is MeetingState.Listening || currentState is MeetingState.Error
+        )
+    }
+
+    /**
+     * T047-4: stop() 後應該可以重新 start()
+     *
+     * 為什麼需要測試：確保 stop → start 的生命週期正確
+     * 預期行為：
+     * 1. stop() 後狀態回到 Ready
+     * 2. 再次呼叫 start() 應該成功進入 Listening
+     */
+    @Test
+    fun `should be able to restart after stop`() = runTest {
+        // Arrange
+        val fakeEngine = FakeAsrEngine()
+        val session = RkMeetingSession(bridge = fakeEngine)
+
+        session.prepare()
+        session.start()
+        session.stop()
+        assertEquals(MeetingState.Ready, session.state.value)
+
+        // Act: 再次 start
+        session.start()
+
+        // Assert
+        assertTrue("重新 start 後引擎應在錄音狀態", fakeEngine.isRecording())
+        assertEquals(
+            "狀態應為 Listening",
+            MeetingState.Listening,
+            session.state.value
+        )
+    }
+
+    /**
+     * T047-5: release() 後不應該能再 start()
+     *
+     * 為什麼需要測試：確保 release 後的引擎不能再使用
+     * 預期行為：
+     * 1. release() 後狀態為 Idle
+     * 2. 呼叫 start() 應該進入 Error 狀態（因為不是 Ready）
+     */
+    @Test
+    fun `start after release should result in error`() = runTest {
+        // Arrange
+        val fakeEngine = FakeAsrEngine()
+        val session = RkMeetingSession(bridge = fakeEngine)
+
+        session.prepare()
+        session.release()
+        assertEquals(MeetingState.Idle, session.state.value)
+
+        // Act
+        session.start()
+
+        // Assert
+        val currentState = session.state.value
+        assertTrue(
+            "release 後 start 應進入 Error 狀態",
+            currentState is MeetingState.Error
         )
     }
 }

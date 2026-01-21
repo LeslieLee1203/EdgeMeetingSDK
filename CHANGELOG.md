@@ -1,5 +1,34 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-01-21] - Phase 3.7 啟停轉錄流程完成
+
+### T047-T049 TDD 完成 ✓
+
+**T047 RED/GREEN: 測試 `start()`/`stop()` 啟停 ASR**
+- 新增 `RkMeetingSessionTest.kt` 五個測試案例：
+  - `start should call bridge startRecording and engine should be recording`
+  - `stop should call bridge stopRecording and engine should stop recording`
+  - `start while already listening should not change state`
+  - `should be able to restart after stop`
+  - `start after release should result in error`
+- 使用 `FakeAsrEngine` 驗證 `isRecording()` 狀態變化
+- **結論**：現有實作已滿足測試需求
+
+**T049 REFACTOR: 檢視生命週期管理**
+- 修正 `release()` 在 `Listening` 狀態時先呼叫 `bridge.stopRecording()`
+- 確保 native 層資源正確釋放，避免資源洩漏
+
+### 狀態轉換圖
+
+```
+Idle → (prepare) → Preparing → Ready / Error
+Ready → (start) → Listening
+Listening → (stop) → Ready
+Any → (release) → Idle
+```
+
+---
+
 ## [2026-01-21] - Phase 3.6 RkMeetingSession 整合完成
 
 ### T043-T044 TDD 完成 ✓
