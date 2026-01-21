@@ -1,14 +1,14 @@
 <!--
 Sync Impact Report
-- 版本變更: 1.0.2 → 1.1.0
-- 原則變更: 「測試先行與 TDD 紀律」- 驗證單元從「一個 function 或一段程式碼」改為「一個完整 TDD 循環 (RED → GREEN → REFACTOR)」
+- 版本變更: 1.1.0 → 1.2.0
+- 原則變更:
+  - 「測試先行與 TDD 紀律」- 新增實用主義原則：簡化測試策略，避免過度測試，聚焦於驗證核心行為與關鍵風險
 - 新增章節: 無
 - 移除章節: 無
 - Templates requiring updates:
-  - ✅ .specify/templates/plan-template.md (已更新 Constitution Check)
-  - ✅ .specify/templates/tasks-template.md (已更新 TDD 流程說明)
-  - ✅ .specify/templates/spec-template.md (無需變更)
-  - ⚠ .specify/templates/commands/*.md (路徑不存在)
+  - ✅ .specify/templates/plan-template.md (已確認相容)
+  - ✅ .specify/templates/tasks-template.md (已確認相容，測試標註為 OPTIONAL 符合簡化原則)
+  - ✅ .specify/templates/spec-template.md (已確認相容)
 - Follow-up TODOs:
   - TODO(RATIFICATION_DATE): 尚未提供原始採納日期
 -->
@@ -27,6 +27,11 @@ TDD 為強制流程：先寫測試且必須失敗，再進行最小實作，最�
 註解必須使用台灣繁體中文（zh_TW）。
 每次只允許完成一個循環（RED → GREEN → REFACTOR）作為運行單元，需經過驗證後才能繼續下個循環。
 
+**實用主義原則**：遵循簡化測試策略，避免過度測試與測試膨脹。
+測試必須聚焦於驗證核心行為、邊界條件與關鍵風險點，而非追求覆蓋率數字。
+拒絕為瑣碎 getter/setter、純資料類別或明顯無風險的程式碼撰寫測試。
+測試的價值在於發現真實缺陷與保護重要不變式，非形式主義的儀式。
+
 ### 使用者體驗一致性
 UI/UX 必須與既有設計語言與互動模式一致。
 新增介面或文案需符合既有元件與樣式，避免未定義的視覺或行為。
@@ -41,9 +46,11 @@ UI/UX 必須與既有設計語言與互動模式一致。
 3. 實作前先用註解說明理由（zh_TW），再撰寫程式碼。
 4. 每次變更只包含一個完整 TDD 循環（RED → GREEN → REFACTOR），通過驗證再前進下個循環。
 5. 所有變更需維持錯誤處理與可回復性。
+6. 測試策略須遵循實用主義：只測試有意義的行為與風險點，拒絕形式主義測試。
 
 ## 品質門檻與驗證
 - 測試覆蓋必須對應需求與使用情境，避免只測 happy path。
+- 測試應專注核心邏輯、邊界條件、錯誤處理與關鍵不變式，拒絕瑣碎或低價值測試。
 - UI/UX 變更需檢查一致性（元件、字型、間距、互動）。
 - 效能變更需附量測基準或比較結果，無量測不得宣稱優化。
 
@@ -53,4 +60,4 @@ UI/UX 必須與既有設計語言與互動模式一致。
 - 版本採語意化版本：破壞性變更升 MAJOR；新增原則或章節升 MINOR；文字澄清升 PATCH。
 - 每次計畫、規格與任務文件需檢核憲章條款的符合性。
 
-**Version**: 1.1.0 | **Ratified**: TODO(RATIFICATION_DATE): 尚未提供原始採納日期 | **Last Amended**: 2026-01-21
+**Version**: 1.2.0 | **Ratified**: TODO(RATIFICATION_DATE): 尚未提供原始採納日期 | **Last Amended**: 2026-01-21
