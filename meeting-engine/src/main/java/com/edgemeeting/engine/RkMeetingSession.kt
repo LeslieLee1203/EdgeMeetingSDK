@@ -1,12 +1,15 @@
 package com.edgemeeting.engine
 
 import com.edgemeeting.core.MeetingSession
+import com.edgemeeting.core.model.AsrConfig
+import com.edgemeeting.core.model.LanguageSetting
 import com.edgemeeting.core.model.MeetingState
 import com.edgemeeting.core.model.TranscriptSegment
 import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineBridge
 import com.edgemeeting.engine.bridge.EngineCallback
 import com.edgemeeting.engine.bridge.EngineConfig
+import com.edgemeeting.engine.bridge.ErrorCodes
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,9 +25,37 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-// 建構子注入 EngineBridge，這是 TDD 可測試性的關鍵！
+/**
+ * RK3588 實作的會議 Session
+ *
+ * 可測試性設計：
+ * - bridge: EngineBridge 注入，測試時用 FakeAsrEngine
+ * - modelProvider: 模型準備函數注入，測試時用 lambda 模擬成功/失敗
+ * - timeSource: 時間來源注入，測試時用 FakeTimeSource
+ * - transcriptGenerator: 字幕產生器注入，測試時用假產生器
+ * - transcriptDispatcher: 協程調度器注入，測試時用 TestDispatcher
+ */
 class RkMeetingSession(
     private val bridge: EngineBridge,
+    /**
+     * 模型準備函數
+     *
+     * 為什麼使用 lambda 而非直接依賴 ModelAssetManager：
+     * 1. 可測試性：測試時無需 Android Context，直接注入 fake 結果
+     * 2. 彈性：未來可支援其他模型來源（網路下載、SD 卡等）
+     * 3. 關注分離：RkMeetingSession 不需知道模型如何準備
+     *
+     * 使用範例（生產環境）：
+     * ```kotlin
+     * val session = RkMeetingSession(
+     *     bridge = JniEngineBridge(),
+     *     modelProvider = { ModelAssetManager.ensureModels(context) }
+     * )
+     * ```
+     *
+     * 回傳 null 表示純錄音模式（無 ASR）。
+     */
+    private val modelProvider: (() -> Result<ModelsReady>)? = null,
     // 為了可測試地控制時間，預設用系統時間。
     private val timeSource: TimeSource = object : TimeSource {
         override fun nowMs(): Long = System.currentTimeMillis()
@@ -123,13 +154,38 @@ class RkMeetingSession(
         // 1. 先通知 UI 我們正在忙 (顯示轉圈圈)
         _state.value = MeetingState.Preparing
 
-        // 2. 呼叫底層 C++ (同步呼叫，之後再優化到背景執行緒)
-        // TODO: Phase 2.5 將實作 ModelAssetManager，動態取得模型路徑並建立 AsrConfig
-        // 目前先使用純錄音模式（asrConfig = null）
-        val config = EngineConfig(asrConfig = null)
+        // 2. 準備 ASR 配置
+        // 若有 modelProvider，則取得模型路徑並建立 AsrConfig
+        // 若無 modelProvider 或為 null，則使用純錄音模式（向後相容）
+        val asrConfig: AsrConfig? = if (modelProvider != null) {
+            val modelsResult = modelProvider.invoke()
+            when {
+                modelsResult.isSuccess -> {
+                    val modelsReady = modelsResult.getOrThrow()
+                    AsrConfig.Whisper(
+                        modelsPath = modelsReady.modelsDir.absolutePath,
+                        language = LanguageSetting.Auto  // TODO: Phase 4 將支援語言設定
+                    )
+                }
+                else -> {
+                    // 模型準備失敗，直接進入 Error 狀態
+                    val exception = modelsResult.exceptionOrNull()
+                    _state.value = MeetingState.Error(
+                        code = ErrorCodes.ERR_MODEL_NOT_FOUND,
+                        message = exception?.message ?: "Model preparation failed"
+                    )
+                    return  // 提前結束，不繼續初始化引擎
+                }
+            }
+        } else {
+            null  // 純錄音模式
+        }
+
+        // 3. 呼叫底層 C++ 初始化
+        val config = EngineConfig(asrConfig = asrConfig)
         val result = bridge.init(config)
 
-        // 3. 根據底層回傳的結果，決定下一個狀態
+        // 4. 根據底層回傳的結果，決定下一個狀態
         when (result) {
             is BridgeResult.Success -> {
                 // 成功 -> 變成 Ready (綠燈)

@@ -1,5 +1,35 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-01-21] - Phase 3.6 RkMeetingSession 整合完成
+
+### T043-T044 TDD 完成 ✓
+
+**T043 RED: 測試 `prepare()` 整合 `ModelAssetManager`**
+- 新增 `RkMeetingSessionTest.kt` 三個測試案例：
+  - `prepare should use modelProvider to build AsrConfig with modelsPath`
+  - `prepare should become Error with ERR_MODEL_NOT_FOUND when modelProvider fails`
+  - `prepare without modelProvider should use audio-only mode for backward compatibility`
+
+**T044 GREEN: 更新 `RkMeetingSession.prepare()`**
+- 新增 `modelProvider: (() -> Result<ModelsReady>)?` 參數（可為 null，向後相容）
+- `prepare()` 邏輯：
+  - 若 `modelProvider` 存在且成功：使用回傳的 `modelsDir` 建立 `AsrConfig.Whisper`
+  - 若 `modelProvider` 存在但失敗：狀態轉為 `Error(ERR_MODEL_NOT_FOUND)`
+  - 若 `modelProvider` 為 null：使用純錄音模式（`asrConfig = null`）
+
+**T046 REFACTOR: 檢視狀態轉換與執行緒安全**
+- 驗證 `MutableStateFlow` 與 `tryEmit` 皆執行緒安全
+- 程式碼結構符合 KISS 原則，無需額外重構
+
+### 設計決策
+
+**為什麼使用 lambda 注入而非直接依賴 `ModelAssetManager`**：
+1. 可測試性：測試時無需 Android `Context`，直接注入 fake 結果
+2. 彈性：未來可支援其他模型來源（網路下載、SD 卡等）
+3. 關注分離：`RkMeetingSession` 不需知道模型如何準備
+
+---
+
 ## [2026-01-21] - Phase 3.5 T038-T042 完成
 
 ### T039-T042 C++ 層實作 ✓

@@ -233,19 +233,22 @@
 
 ### 3.6 RkMeetingSession 整合（TDD）
 
-- [ ] T043 🔴 RED: 測試 `prepare()` 於 `RkMeetingSessionTest.kt`
+- [X] T043 🔴 RED: 測試 `prepare()` 於 `RkMeetingSessionTest.kt`
   - 測試：`prepare()` 呼叫 `ModelAssetManager.ensureModels()` 取得 modelsDir
   - 測試：模型缺失時狀態轉為 `Error(ERR_MODEL_NOT_FOUND)`
   - **使用 FakeAsrEngine**（T028a）進行測試
-- [ ] T044 🟢 GREEN: 更新 `RkMeetingSession.prepare()`
+  - **實作**：新增 `modelProvider` lambda 參數，測試時注入 fake 結果
+- [X] T044 🟢 GREEN: 更新 `RkMeetingSession.prepare()`
   - 使用 `ModelAssetManager.ensureModels()` 回傳的路徑建立 `AsrConfig`
   - 注入 `CoroutineDispatcher`（預設 `Dispatchers.Main`，測試時用 `TestDispatcher`）
+  - **實作**：`modelProvider` 為可選參數（null = 純錄音模式，向後相容）
 - [X] T045 🟢 GREEN: 將 `onTranscript` 回調接入 `transcriptFlow`
   - 使用 `transcriptFlowInternal.tryEmit()` 發射 segment
   - **Note**: 暫不需要 `withContext(mainDispatcher)`，因為 `tryEmit` 是執行緒安全的
-- [ ] T046 🔵 REFACTOR: 檢視狀態轉換與執行緒安全
+- [X] T046 🔵 REFACTOR: 檢視狀態轉換與執行緒安全
   - 驗證 `transcriptFlow` emit 在正確的 Dispatcher
   - 驗證多執行緒存取狀態的安全性
+  - **結論**：`MutableStateFlow` 與 `tryEmit` 皆執行緒安全，無需額外處理
 
 ### 3.7 啟停轉錄流程（TDD）
 
