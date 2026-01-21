@@ -3,9 +3,10 @@ package com.edgemeeting.engine
 import com.edgemeeting.core.MeetingSession
 import com.edgemeeting.core.model.MeetingState
 import com.edgemeeting.core.model.TranscriptSegment
-import com.edgemeeting.engine.bridge.AudioCallback
 import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineBridge
+import com.edgemeeting.engine.bridge.EngineCallback
+import com.edgemeeting.engine.bridge.EngineConfig
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,13 +55,23 @@ class RkMeetingSession(
 
     init {
         // 註冊 Callback
-        bridge.setCallback(object : AudioCallback {
+        bridge.setCallback(object : EngineCallback {
             override fun onAudioData(data: FloatArray) {
                 // 這裡會非常頻繁被呼叫 (每 160ms 一次)
                 // 為了驗證 Phase 3 成功，我們印出陣列長度與第一個值
                 if (data.isNotEmpty()) {
                     android.util.Log.d("JNI_CALLBACK", "Received ${data.size} frames. First: ${data[0]}")
                 }
+            }
+
+            override fun onTranscript(segment: TranscriptSegment) {
+                // TODO: Phase 3 將實作轉錄結果處理
+                android.util.Log.d("JNI_CALLBACK", "Transcript: ${segment.text}")
+            }
+
+            override fun onError(code: Int, message: String) {
+                // TODO: Phase 3 將實作錯誤處理
+                android.util.Log.e("JNI_CALLBACK", "Error $code: $message")
             }
         })
     }
@@ -110,9 +121,10 @@ class RkMeetingSession(
         _state.value = MeetingState.Preparing
 
         // 2. 呼叫底層 C++ (同步呼叫，之後再優化到背景執行緒)
-        // 暫時寫死路徑，Phase 1 重點是架構跑通
-        val defaultModelPath = "/data/local/tmp/models"
-        val result = bridge.init(defaultModelPath)
+        // TODO: Phase 2.5 將實作 ModelAssetManager，動態取得模型路徑並建立 AsrConfig
+        // 目前先使用純錄音模式（asrConfig = null）
+        val config = EngineConfig(asrConfig = null)
+        val result = bridge.init(config)
 
         // 3. 根據底層回傳的結果，決定下一個狀態
         when (result) {

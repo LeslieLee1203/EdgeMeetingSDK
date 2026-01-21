@@ -78,34 +78,34 @@
 
 > **Why first**: `AsrConfig.Whisper` 需要 `LanguageSetting` 作為參數，必須先定義。
 
-- [ ] T003 🔴 RED: 測試 `LanguageSetting`（Auto/Fixed）於 `meeting-core/src/test/java/com/edgemeeting/core/LanguageSettingTest.kt`
-- [ ] T004 🟢 GREEN: 建立 `LanguageSetting` sealed class 於 `meeting-core/src/main/java/com/edgemeeting/core/model/LanguageSetting.kt`
-- [ ] T004a 🔵 REFACTOR: 檢視語言代碼驗證（ISO 639-1 格式）
+- [X] T003 🔴 RED: 測試 `LanguageSetting`（Auto/Fixed）於 `meeting-core/src/test/java/com/edgemeeting/core/LanguageSettingTest.kt`
+- [X] T004 🟢 GREEN: 建立 `LanguageSetting` sealed class 於 `meeting-core/src/main/java/com/edgemeeting/core/model/LanguageSetting.kt`
+- [X] T004a 🔵 REFACTOR: 檢視語言代碼驗證（ISO 639-1 格式）
 
 ### 2.1 AsrConfig 資料模型（TDD）
 
-- [ ] T005 🔴 RED: 測試 `AsrConfig.Whisper` 建構與驗證於 `meeting-core/src/test/java/com/edgemeeting/core/AsrConfigTest.kt`
+- [X] T005 🔴 RED: 測試 `AsrConfig.Whisper` 建構與驗證於 `meeting-core/src/test/java/com/edgemeeting/core/AsrConfigTest.kt`
   - 依賴：`LanguageSetting`（T004 完成後）
-- [ ] T006 🟢 GREEN: 建立 `AsrConfig` sealed class 於 `meeting-core/src/main/java/com/edgemeeting/core/model/AsrConfig.kt`
-- [ ] T007 🔵 REFACTOR: 檢視 sealed class 結構與命名
+- [X] T006 🟢 GREEN: 建立 `AsrConfig` sealed class 於 `meeting-core/src/main/java/com/edgemeeting/core/model/AsrConfig.kt`
+- [X] T007 🔵 REFACTOR: 檢視 sealed class 結構與命名
 
 ### 2.2 EngineConfig 資料模型（TDD）
 
-- [ ] T008 🔴 RED: 測試 `EngineConfig` 建構於 `meeting-engine/src/test/java/com/edgemeeting/engine/EngineConfigTest.kt`
-- [ ] T009 🟢 GREEN: 建立 `EngineConfig` 於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineConfig.kt`
-- [ ] T010 🔵 REFACTOR: 檢視預設值與 null 處理
+- [X] T008 🔴 RED: 測試 `EngineConfig` 建構於 `meeting-engine/src/test/java/com/edgemeeting/engine/EngineConfigTest.kt`
+- [X] T009 🟢 GREEN: 建立 `EngineConfig` 於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineConfig.kt`
+- [X] T010 🔵 REFACTOR: 檢視預設值與 null 處理
 
 ### 2.3 EngineCallback 擴充（TDD）
 
-- [ ] T011 🔴 RED: 測試 `EngineCallback.onTranscript` 回調於 `meeting-engine/src/test/java/com/edgemeeting/engine/EngineCallbackTest.kt`
-- [ ] T012 🟢 GREEN: 擴充 `EngineCallback` 介面（從 `AudioCallback` 重構）於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineCallback.kt`
-- [ ] T013 🔵 REFACTOR: 確認向後相容性
+- [X] T011 🔴 RED: 測試 `EngineCallback.onTranscript` 回調於 `meeting-engine/src/test/java/com/edgemeeting/engine/EngineCallbackTest.kt`
+- [X] T012 🟢 GREEN: 擴充 `EngineCallback` 介面（從 `AudioCallback` 重構）於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineCallback.kt`
+- [X] T013 🔵 REFACTOR: 確認向後相容性
 
 ### 2.4 EngineBridge 介面更新（TDD）
 
-- [ ] T014 🔴 RED: 測試 `EngineBridge.init(EngineConfig)` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/EngineBridgeTest.kt`
-- [ ] T015 🟢 GREEN: 更新 `EngineBridge.init` 簽章於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineBridge.kt`
-- [ ] T016 🔵 REFACTOR: 檢視介面一致性
+- [X] T014 🔴 RED: 測試 `EngineBridge.init(EngineConfig)` 於 `meeting-engine/src/test/java/com/edgemeeting/engine/EngineBridgeTest.kt`
+- [X] T015 🟢 GREEN: 更新 `EngineBridge.init` 簽章於 `meeting-engine/src/main/java/com/edgemeeting/engine/bridge/EngineBridge.kt`
+- [X] T016 🔵 REFACTOR: 檢視介面一致性
 
 ### 2.5 ModelAssetManager（TDD）
 

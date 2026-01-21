@@ -6,7 +6,8 @@ data class TranscriptSegment(
     val speakerId: String,   // "Speaker_A", "Unknown"
     val isFinal: Boolean,    // true=確認(黑字), false=預測(灰字)
     val startTimeMs: Long,     // 相對於會議開始的毫秒數 (例如 1500 代表 1.5秒)
-    val endTimeMs: Long        // 結束時間 (例如 2800)
+    val endTimeMs: Long,       // 結束時間 (例如 2800)
+    val languageCode: String? = null  // 偵測到的語言代碼（如 "zh", "en"），null 表示未偵測或不支援
 ) {
 
     init {

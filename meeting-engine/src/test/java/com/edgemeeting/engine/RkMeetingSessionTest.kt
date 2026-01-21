@@ -1,7 +1,8 @@
 package com.edgemeeting.engine
 
 import com.edgemeeting.core.model.MeetingState
-import com.edgemeeting.engine.bridge.AudioCallback
+import com.edgemeeting.engine.bridge.EngineCallback
+import com.edgemeeting.engine.bridge.EngineConfig
 import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineBridge
 import junit.framework.TestCase.assertEquals
@@ -15,14 +16,16 @@ class RkMeetingSessionTest {
     class FakeEngineBridge : EngineBridge {
         var nextInitResult: BridgeResult = BridgeResult.Success // 設定預設行為
         var isInitCalled = false
+        var lastConfig: EngineConfig? = null // 記錄傳入的配置
 
-        override fun init(modelPath: String): BridgeResult {
+        override fun init(config: EngineConfig): BridgeResult {
             isInitCalled = true
+            lastConfig = config
             return nextInitResult
         }
 
         // 其他方法暫時不重要，留空即可
-        override fun setCallback(callback: AudioCallback) = Unit
+        override fun setCallback(callback: EngineCallback) = Unit
         override fun startRecording() {}
         override fun stopRecording() {}
         override fun release() {}

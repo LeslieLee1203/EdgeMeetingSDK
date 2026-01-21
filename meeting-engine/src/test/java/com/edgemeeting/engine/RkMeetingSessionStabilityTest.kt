@@ -1,6 +1,7 @@
 package com.edgemeeting.engine
 
-import com.edgemeeting.engine.bridge.AudioCallback
+import com.edgemeeting.engine.bridge.EngineCallback
+import com.edgemeeting.engine.bridge.EngineConfig
 import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineBridge
 import junit.framework.TestCase.assertTrue
@@ -19,8 +20,8 @@ class RkMeetingSessionStabilityTest {
     fun `should keep emitting transcripts for 10 minutes`() = runTest {
         // 為了驗證長時間穩定性，模擬 10 分鐘仍可持續輸出字幕。
         val bridge = object : EngineBridge {
-            override fun init(modelPath: String): BridgeResult = BridgeResult.Success
-            override fun setCallback(callback: AudioCallback) = Unit
+            override fun init(config: EngineConfig): BridgeResult = BridgeResult.Success
+            override fun setCallback(callback: EngineCallback) = Unit
             override fun startRecording() = Unit
             override fun stopRecording() = Unit
             override fun release() = Unit

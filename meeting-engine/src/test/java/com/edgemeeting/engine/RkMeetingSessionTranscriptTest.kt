@@ -1,6 +1,7 @@
 package com.edgemeeting.engine
 
-import com.edgemeeting.engine.bridge.AudioCallback
+import com.edgemeeting.engine.bridge.EngineCallback
+import com.edgemeeting.engine.bridge.EngineConfig
 import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineBridge
 import junit.framework.TestCase.assertTrue
@@ -19,8 +20,8 @@ class RkMeetingSessionTranscriptTest {
     fun `start should emit transcript segments roughly every second`() = runTest {
         // 為了驗證字幕輸出節奏，我們需要統計 15 秒內產生的段落數量。
         val bridge = object : EngineBridge {
-            override fun init(modelPath: String): BridgeResult = BridgeResult.Success
-            override fun setCallback(callback: AudioCallback) = Unit
+            override fun init(config: EngineConfig): BridgeResult = BridgeResult.Success
+            override fun setCallback(callback: EngineCallback) = Unit
             override fun startRecording() = Unit
             override fun stopRecording() = Unit
             override fun release() = Unit
@@ -63,8 +64,8 @@ class RkMeetingSessionTranscriptTest {
     fun `stop should stop emitting transcripts within 2 seconds`() = runTest {
         // 為了驗證停止後不再輸出，我們先確保有產生字幕，再檢查停止後計數不再增加。
         val bridge = object : EngineBridge {
-            override fun init(modelPath: String): BridgeResult = BridgeResult.Success
-            override fun setCallback(callback: AudioCallback) = Unit
+            override fun init(config: EngineConfig): BridgeResult = BridgeResult.Success
+            override fun setCallback(callback: EngineCallback) = Unit
             override fun startRecording() = Unit
             override fun stopRecording() = Unit
             override fun release() = Unit
@@ -113,8 +114,8 @@ class RkMeetingSessionTranscriptTest {
     fun `transcript segments should contain required fields and increasing time`() = runTest {
         // 為了驗證資料契約，我們檢查欄位完整性與時間遞增。
         val bridge = object : EngineBridge {
-            override fun init(modelPath: String): BridgeResult = BridgeResult.Success
-            override fun setCallback(callback: AudioCallback) = Unit
+            override fun init(config: EngineConfig): BridgeResult = BridgeResult.Success
+            override fun setCallback(callback: EngineCallback) = Unit
             override fun startRecording() = Unit
             override fun stopRecording() = Unit
             override fun release() = Unit
@@ -165,8 +166,8 @@ class RkMeetingSessionTranscriptTest {
     fun `update interval should stay within 1_5 seconds for 95 percent`() = runTest {
         // 為了驗證節奏穩定性，我們收集一段時間的間隔並檢查 95% 不超過 1.5 秒。
         val bridge = object : EngineBridge {
-            override fun init(modelPath: String): BridgeResult = BridgeResult.Success
-            override fun setCallback(callback: AudioCallback) = Unit
+            override fun init(config: EngineConfig): BridgeResult = BridgeResult.Success
+            override fun setCallback(callback: EngineCallback) = Unit
             override fun startRecording() = Unit
             override fun stopRecording() = Unit
             override fun release() = Unit

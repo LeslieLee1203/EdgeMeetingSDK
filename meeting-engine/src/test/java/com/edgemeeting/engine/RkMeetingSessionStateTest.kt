@@ -1,7 +1,8 @@
 package com.edgemeeting.engine
 
 import com.edgemeeting.core.model.MeetingState
-import com.edgemeeting.engine.bridge.AudioCallback
+import com.edgemeeting.engine.bridge.EngineCallback
+import com.edgemeeting.engine.bridge.EngineConfig
 import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineBridge
 import junit.framework.TestCase.assertTrue
@@ -14,8 +15,8 @@ class RkMeetingSessionStateTest {
     fun `start without prepare should become Error`() = runTest {
         // 為了確保錯誤狀態可見，未準備就啟動應回報 Error。
         val bridge = object : EngineBridge {
-            override fun init(modelPath: String): BridgeResult = BridgeResult.Success
-            override fun setCallback(callback: AudioCallback) = Unit
+            override fun init(config: EngineConfig): BridgeResult = BridgeResult.Success
+            override fun setCallback(callback: EngineCallback) = Unit
             override fun startRecording() = Unit
             override fun stopRecording() = Unit
             override fun release() = Unit
@@ -36,10 +37,10 @@ class RkMeetingSessionStateTest {
     fun `prepare failure should become Error`() = runTest {
         // 為了確保準備失敗可回報錯誤狀態，模擬 init 失敗。
         val bridge = object : EngineBridge {
-            override fun init(modelPath: String): BridgeResult =
+            override fun init(config: EngineConfig): BridgeResult =
                 BridgeResult.Failure(123, "Init failed")
 
-            override fun setCallback(callback: AudioCallback) = Unit
+            override fun setCallback(callback: EngineCallback) = Unit
             override fun startRecording() = Unit
             override fun stopRecording() = Unit
             override fun release() = Unit
