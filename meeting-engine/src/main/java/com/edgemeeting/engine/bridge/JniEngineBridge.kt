@@ -1,5 +1,7 @@
 package com.edgemeeting.engine.bridge
 
+import com.edgemeeting.core.model.AsrConfig
+import com.edgemeeting.core.model.LanguageSetting
 import com.edgemeeting.core.model.TranscriptSegment
 
 class JniEngineBridge: EngineBridge {
@@ -13,16 +15,41 @@ class JniEngineBridge: EngineBridge {
     private var callback: EngineCallback? = null
 
     override fun init(config: EngineConfig): BridgeResult {
-        // 呼叫 native 方法，取得簡單的 Int 結果
-        // TODO: Phase 3 將實作完整的 EngineConfig 傳遞（包含 AsrConfig）
-        // 目前先傳空字串，Phase 3 時會傳遞實際的模型路徑與 ASR 配置
-        val resultCode = nativeInit("")
+        // 為什麼需要萃取參數：將 Kotlin sealed class 轉換為 C++ 可接受的原始型別
 
-        // 在 Kotlin 這邊做「轉譯」，保持 C++ 簡單
+        val (modelsPath, language) = when (val asrConfig = config.asrConfig) {
+            is AsrConfig.Whisper -> {
+                // 萃取 modelsPath 與 language
+                val path = asrConfig.modelsPath
+                // 將 language 賦值給 local variable 以支援 smart cast
+                val languageSetting = asrConfig.language
+                val lang = when (languageSetting) {
+                    is LanguageSetting.Auto -> "auto"
+                    is LanguageSetting.Fixed -> languageSetting.languageCode
+                }
+                Pair(path, lang)
+            }
+            null -> {
+                // 純錄音模式：傳遞空字串
+                Pair("", "")
+            }
+            // 未來若新增其他 ASR 類型（如 Zipformer），在此擴充
+        }
+
+        // 呼叫 native 方法
+        val resultCode = nativeInit(modelsPath, language)
+
+        // 轉譯錯誤碼為 BridgeResult
         return if (resultCode == 0) {
             BridgeResult.Success
         } else {
-            BridgeResult.Failure(resultCode, "Native init failed with code $resultCode")
+            // 根據錯誤碼回傳對應訊息
+            val errorMessage = when (resultCode) {
+                1001 -> "Model file not found at $modelsPath"
+                1002 -> "Failed to load model from $modelsPath"
+                else -> "Native init failed with code $resultCode"
+            }
+            BridgeResult.Failure(resultCode, errorMessage)
         }
     }
 
@@ -45,7 +72,16 @@ class JniEngineBridge: EngineBridge {
 
     // ========== JNI 定義區 (External Functions) ==========
     // 命名慣例：加上 native 前綴，區分介面與實作
-    private external fun nativeInit(modelPath: String): Int
+
+    /**
+     * 初始化 native 引擎
+     *
+     * @param modelsPath 模型檔資料夾路徑（空字串表示純錄音模式）
+     * @param language 語言代碼（"auto" 或指定語言如 "zh", "en"）
+     * @return 0 成功，非 0 錯誤碼
+     */
+    private external fun nativeInit(modelsPath: String, language: String): Int
+
     private external fun nativeSetCallback(callback: EngineCallback)
     private external fun nativeStart()
     private external fun nativeStop()

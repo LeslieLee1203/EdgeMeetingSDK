@@ -205,10 +205,10 @@
 
 ### 3.4 JNI ASR 整合（TDD）
 
-- [ ] T034 🔴 RED: 測試 `JniEngineBridge.init(EngineConfig)` 建立 ASR 引擎於 `JniEngineBridgeTest.kt`
-- [ ] T035 🟢 GREEN: 更新 `native-lib.cpp` 支援 `AsrConfig` 參數
-- [ ] T036 🟢 GREEN: 實作 `JniEngineBridge.init` 呼叫 native ASR 初始化
-- [ ] T037 🔵 REFACTOR: 檢視 JNI 參數傳遞效率
+- [X] T034 🔴 RED: 測試 `JniEngineBridge.init(EngineConfig)` 建立 ASR 引擎於 `JniEngineBridgeTest.kt`
+- [X] T035 🟢 GREEN: 更新 `native-lib.cpp` 支援 `AsrConfig` 參數
+- [X] T036 🟢 GREEN: 實作 `JniEngineBridge.init` 呼叫 native ASR 初始化
+- [X] T037 🔵 REFACTOR: 檢視 JNI 參數傳遞效率
 
 ### 3.5 音訊輸入與轉錄輸出（TDD）
 

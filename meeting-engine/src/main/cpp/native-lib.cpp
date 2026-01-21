@@ -22,11 +22,18 @@
 #include <android/log.h>
 #include "AudioRecorder.h"
 #include "AudioProcessor.h"
+#include "asr/AsrEngine.h"
+#include "asr/WhisperAsrEngine.h"
 
 // 全域指標 (MVP 階段暫時做法)
 static std::unique_ptr<AudioRecorder> gRecorder = nullptr;
 static std::unique_ptr<AudioProcessor> gProcessor = nullptr;
+static std::unique_ptr<AsrEngine> gAsrEngine = nullptr;  // Phase 3: ASR 引擎
 static JavaVM* gJavaVM = nullptr; // 儲存 JVM 指標
+
+#define LOG_TAG "native-lib"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 extern "C" {
 
@@ -36,15 +43,74 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
     return JNI_VERSION_1_6;
 }
 
+/**
+ * 初始化引擎（支援 ASR 配置）
+ *
+ * @param env JNI 環境
+ * @param thiz JniEngineBridge 實例
+ * @param modelsPath 模型路徑（可為空字串表示純錄音模式）
+ * @param language 語言代碼（如 "auto", "zh", "en"）
+ * @return 0 成功，非 0 錯誤碼
+ *
+ * 為什麼需要 modelsPath 與 language：
+ * - modelsPath: Whisper RKNN 模型檔案夾路徑
+ * - language: 語言設定（auto 自動偵測，或指定語言提升準確度）
+ *
+ * 錯誤碼：
+ * - 0: 成功
+ * - 1001: 模型檔案不存在
+ * - 1002: 模型載入失敗
+ */
 JNIEXPORT jint JNICALL
 Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeInit(
         JNIEnv* env,
-        jobject,
-        jstring modelPath) {
+        jobject thiz,
+        jstring modelsPath,
+        jstring language) {
 
-    // MVP: 這裡還不載入模型，只確認路徑
-    // 這裡也不需要初始化 Recorder，因為 Oboe 建議在 Start 時再 open stream
-    return 0; // Success
+    // 轉換 jstring 至 C++ string
+    const char* modelsPathChars = env->GetStringUTFChars(modelsPath, nullptr);
+    const char* languageChars = env->GetStringUTFChars(language, nullptr);
+
+    std::string modelsPathStr(modelsPathChars);
+    std::string languageStr(languageChars);
+
+    env->ReleaseStringUTFChars(modelsPath, modelsPathChars);
+    env->ReleaseStringUTFChars(language, languageChars);
+
+    // 檢查是否為純錄音模式（modelsPath 為空）
+    if (modelsPathStr.empty()) {
+        LOGI("Init: Pure audio mode (no ASR)");
+        // 純錄音模式：不建立 ASR 引擎
+        return 0;  // Success
+    }
+
+    // ASR 模式：建立 WhisperAsrEngine
+    LOGI("Init: ASR mode (modelsPath=%s, language=%s)", modelsPathStr.c_str(), languageStr.c_str());
+
+    // 清理舊的 ASR 引擎（如果存在）
+    if (gAsrEngine) {
+        LOGI("Releasing old ASR engine");
+        gAsrEngine->release();
+        gAsrEngine.reset();
+    }
+
+    // 建立 WhisperAsrEngine
+    gAsrEngine = std::make_unique<WhisperAsrEngine>();
+
+    // 初始化 ASR 引擎
+    bool initSuccess = gAsrEngine->init(modelsPathStr, languageStr);
+    if (!initSuccess) {
+        LOGE("ASR engine init failed");
+        gAsrEngine.reset();
+
+        // 返回錯誤碼（假設是模型載入失敗）
+        // 實際錯誤碼應由 WhisperAsrEngine 提供，這裡簡化為 1002
+        return 1002;  // ERR_MODEL_LOAD_FAILED
+    }
+
+    LOGI("ASR engine initialized successfully");
+    return 0;  // Success
 }
 
 // 2. 新增：設定 Callback
@@ -75,20 +141,42 @@ Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeStart(JNIEnv* env, jobj
     if (gRecorder) gRecorder->start(0, 0); // 先開始錄音
     if (gProcessor) gProcessor->start();   // 再開始處理 (撈資料 -> 丟回 Kotlin)
 
-    __android_log_print(ANDROID_LOG_INFO, "JNI", "Native Start (Recorder + Processor)");
+    // Phase 3: 啟動 ASR 引擎（如果已初始化）
+    if (gAsrEngine) {
+        gAsrEngine->start();
+        LOGI("ASR engine started");
+    }
+
+    LOGI("Native Start (Recorder + Processor + ASR)");
 }
 
 JNIEXPORT void JNICALL
 Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeStop(JNIEnv* env, jobject) {
+    // Phase 3: 停止 ASR 引擎（flush 剩餘音訊）
+    if (gAsrEngine) {
+        gAsrEngine->stop();
+        LOGI("ASR engine stopped");
+    }
+
     if (gProcessor) gProcessor->stop();
     if (gRecorder) gRecorder->stop();
-    __android_log_print(ANDROID_LOG_INFO, "JNI", "Native Stop");
+
+    LOGI("Native Stop");
 }
 
 JNIEXPORT void JNICALL
 Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeRelease(JNIEnv* env, jobject) {
+    // Phase 3: 釋放 ASR 引擎
+    if (gAsrEngine) {
+        gAsrEngine->release();
+        gAsrEngine.reset();
+        LOGI("ASR engine released");
+    }
+
     if (gProcessor) { gProcessor->stop(); gProcessor.reset(); }
     if (gRecorder) { gRecorder->stop(); gRecorder.reset(); }
+
+    LOGI("Native Release");
 }
 
 } // extern "C"
