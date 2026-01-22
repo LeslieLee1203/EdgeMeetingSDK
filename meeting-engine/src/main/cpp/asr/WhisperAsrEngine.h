@@ -18,7 +18,8 @@ using TranscriptCallback = std::function<void(
     const std::string& speakerId,
     bool isFinal,
     long startMs,
-    long endMs
+    long endMs,
+    const std::string& languageCode  // Phase 4: 新增語言代碼參數
 )>;
 
 class WhisperAsrEngine : public AsrEngine {

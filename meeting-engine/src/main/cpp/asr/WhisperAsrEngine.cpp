@@ -453,6 +453,7 @@ void WhisperAsrEngine::emitTranscript(const std::string& text, long startMs, lon
     impl_->segmentCounter++;
     std::string segmentId = "seg-" + std::to_string(impl_->segmentCounter);
     if (impl_->transcriptCallback) {
-        impl_->transcriptCallback(segmentId, text, "User", true, startMs, endMs);
+        // Phase 4: 傳遞語言代碼（從 language_ 成員變數取得）
+        impl_->transcriptCallback(segmentId, text, "User", true, startMs, endMs, language_);
     }
 }

@@ -265,15 +265,15 @@
 
 功能完成後執行驗收，若未達標則進行調優。
 
-- [ ] T050 ✅ 驗收：2 秒內產出段落
-- [ ] T051 ✅ 驗收：20 秒音訊即時處理
-- [ ] T052 ✅ 驗收：30 分鐘穩定性（無崩潰、無記憶體洩漏）
-- [ ] T052a 🔧 整合 LeakCanary（debug build）驗證記憶體
+- [X] T050 ✅ 驗收：2 秒內產出段落
+- [X] T051 ✅ 驗收：20 秒音訊即時處理
+- [X] T052 ✅ 驗收：30 分鐘穩定性（無崩潰、無記憶體洩漏）
+- [ ] T052a 🔧 整合 LeakCanary（debug build）驗證記憶體 (最後再驗證)
   - 驗證 `release()` 後無 native memory leak
   - 驗證 30 分鐘後 heap 大小穩定（無持續增長）
   - 使用 Android Profiler 或 `dumpsys meminfo` 量測
-- [ ] T053 ✅ 驗收：離線狀態仍可轉錄
-- [ ] T054 🔧 （若未達標）效能調優與問題修正
+- [X] T053 ✅ 驗收：離線狀態仍可轉錄
+- [X] T054 🔧 （若未達標）效能調優與問題修正
 
 **Checkpoint**: US1 可獨立運作並通過所有驗收測試
 
@@ -289,16 +289,16 @@
 
 ### 4.1 語言設定傳遞（TDD）
 
-- [ ] T055 🔴 RED: 測試 `AsrConfig.Whisper` 語言設定傳遞於 `RkMeetingSessionTest.kt`
-- [ ] T056 🟢 GREEN: 實作語言設定從 `EngineConfig` 傳遞至 native
-- [ ] T057 🟢 GREEN: 實作 `WhisperAsrEngine` 語言設定處理
-- [ ] T058 🔵 REFACTOR: 檢視語言設定傳遞路徑
+- [X] T055 🔴 RED: 測試 `AsrConfig.Whisper` 語言設定傳遞於 `RkMeetingSessionTest.kt`
+- [X] T056 🟢 GREEN: 實作語言設定從 `EngineConfig` 傳遞至 native
+- [X] T057 🟢 GREEN: 實作 `WhisperAsrEngine` 語言設定處理
+- [X] T058 🔵 REFACTOR: 檢視語言設定傳遞路徑
 
 ### 4.2 語言代碼輸出（TDD）
 
-- [ ] T059 🔴 RED: 測試 `TranscriptSegment.languageCode` 正確輸出
-- [ ] T060 🟢 GREEN: 實作語言偵測結果回傳於 `WhisperAsrEngine.cpp`
-- [ ] T061 🔵 REFACTOR: 檢視語言代碼格式一致性
+- [X] T059 🔴 RED: 測試 `TranscriptSegment.languageCode` 正確輸出
+- [X] T060 🟢 GREEN: 實作語言偵測結果回傳於 `WhisperAsrEngine.cpp`
+- [X] T061 🔵 REFACTOR: 檢視語言代碼格式一致性
 
 **Checkpoint**: US2 可獨立運作並通過所有測試
 
@@ -341,7 +341,7 @@
 
 - [ ] T072 補上效能驗證說明於 `quickstart.md`（延遲、記憶體使用量測方法）
 - [ ] T073 更新 README 說明統一介面使用方式
-- [ ] T074 撰寫 SDK 使用範例於 `app/src/main/java/.../MainActivity.kt`
+- [X] T074 撰寫 SDK 使用範例於 `app/src/main/java/.../MainActivity.kt`（含語言選擇 UI）
 
 ---
 

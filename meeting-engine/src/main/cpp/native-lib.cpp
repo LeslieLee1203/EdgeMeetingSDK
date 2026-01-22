@@ -32,7 +32,8 @@ void setupAsrCallbacks() {
             const std::string& speakerId,
             bool isFinal,
             long startMs,
-            long endMs
+            long endMs,
+            const std::string& languageCode  // Phase 4: 新增語言代碼參數
         ) {
             // 在背景執行緒呼叫 JNI
             if (!gJavaVM || !gCallbackObj) {
@@ -69,7 +70,8 @@ void setupAsrCallbacks() {
                 jstring jSegmentId = env->NewStringUTF(segmentId.c_str());
                 jstring jText = env->NewStringUTF(text.c_str());
                 jstring jSpeakerId = env->NewStringUTF(speakerId.c_str());
-                jstring jLanguageCode = nullptr;
+                // Phase 4: 傳遞語言代碼（若為空則傳 null）
+                jstring jLanguageCode = languageCode.empty() ? nullptr : env->NewStringUTF(languageCode.c_str());
 
                 env->CallVoidMethod(
                     gCallbackObj,
@@ -86,6 +88,7 @@ void setupAsrCallbacks() {
                 env->DeleteLocalRef(jSegmentId);
                 env->DeleteLocalRef(jText);
                 env->DeleteLocalRef(jSpeakerId);
+                if (jLanguageCode) env->DeleteLocalRef(jLanguageCode);
             } else {
                 LOGE("JNI callback: Method onNativeTranscript not found");
             }

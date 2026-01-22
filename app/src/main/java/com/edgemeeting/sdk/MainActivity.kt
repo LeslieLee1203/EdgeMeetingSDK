@@ -10,12 +10,18 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,13 +29,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.edgemeeting.core.MeetingSession
+import com.edgemeeting.core.model.LanguageSetting
 import com.edgemeeting.core.model.MeetingState
 import com.edgemeeting.engine.ModelAssetManager
 import com.edgemeeting.engine.RkMeetingSession
@@ -40,10 +49,14 @@ class MainActivity : ComponentActivity() {
 
     // 1. 在這裡組裝依賴 (Dependency Injection Root)
     // 在真實 App 中這通常由 Hilt/Koin 負責，但 Walking Skeleton 階段直接 new 最快
-    private val session: MeetingSession by lazy {
+    // Phase 4: 語言設定由 UI 控制，透過 createSession 建立
+    private var session: MeetingSession? = null
+
+    private fun createSession(languageSetting: LanguageSetting): MeetingSession {
         val bridge = JniEngineBridge() // 載入 .so 檔
-        RkMeetingSession(
+        return RkMeetingSession(
             bridge = bridge,
+            languageSetting = languageSetting,
             modelProvider = { ModelAssetManager.ensureModels(this) }
         )       // 注入到 Session
     }
@@ -55,9 +68,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             EdgeMeetingSDKTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    // 傳入 session 供 UI 觀察與操作
+                    // Phase 4: 傳入 createSession 函數供 UI 建立 session
                     MeetingScreen(
-                        session = session,
+                        createSession = ::createSession,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -68,12 +81,21 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MeetingScreen(
-    session: MeetingSession,
+    createSession: (LanguageSetting) -> MeetingSession,
     modifier: Modifier = Modifier
 ) {
+    // Phase 4: 語言設定狀態（預設 Auto）
+    var selectedLanguage by remember { mutableStateOf<LanguageSetting>(LanguageSetting.Auto) }
+    var session by remember { mutableStateOf<MeetingSession?>(null) }
+
+    // 當語言設定改變時，重新建立 session
+    LaunchedEffect(selectedLanguage) {
+        session = createSession(selectedLanguage)
+    }
+
     // 2. 觀察狀態流 (StateFlow -> Compose State)
     // 當 Session 狀態改變時，這裡會自動 Recomposition
-    val meetingState by session.state.collectAsState()
+    val meetingState by (session?.state ?: return).collectAsState()
 
     // 用於發動非同步操作 (雖然 prepare 目前是同步的，但好習慣還是要有)
     val scope = rememberCoroutineScope()
@@ -98,7 +120,7 @@ fun MeetingScreen(
     // 收集字幕流，將最新段落追加到列表
     LaunchedEffect(session) {
         try {
-            session.transcriptFlow.collect { segments ->
+            session?.transcriptFlow?.collect { segments ->
                 segments.forEach { transcriptItems.add(it) }
             }
         } catch (error: Throwable) {
@@ -122,7 +144,20 @@ fun MeetingScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // 3. 狀態顯示區
+        // 3. 語言設定選擇器（Phase 4）
+        LanguageSelector(
+            selectedLanguage = selectedLanguage,
+            onLanguageChanged = { newLanguage ->
+                selectedLanguage = newLanguage
+                // 清空字幕列表，因為將重新建立 session
+                transcriptItems.clear()
+            },
+            enabled = meetingState is MeetingState.Idle || meetingState is MeetingState.Error
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 4. 狀態顯示區
         StateIndicator(state = meetingState)
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -144,46 +179,59 @@ fun MeetingScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // 4. 操作按鈕：Prepare
-        // 點擊後會呼叫 C++ JNI，若成功，狀態應變為 Ready
-        Button(
-            onClick = {
-                Log.d("App", "User clicked Prepare")
-                // 注意：在真實專案應搬到 ViewModel，這裡為了驗證直接呼叫
-                session.prepare()
-            },
-            enabled = meetingState is MeetingState.Idle || meetingState is MeetingState.Error
+        // 5. 操作按鈕區（單行橫向排列）
+        Row(
+            modifier = Modifier.fillMaxWidth(0.95f),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text("1. Initialize Engine (Prepare)")
-        }
+            // Prepare
+            Button(
+                onClick = {
+                    Log.d("App", "User clicked Prepare")
+                    session?.prepare()
+                },
+                enabled = meetingState is MeetingState.Idle || meetingState is MeetingState.Error,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Prepare")
+            }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            // Start
+            Button(
+                onClick = {
+                    Log.d("App", "User clicked Start")
+                    session?.start()
+                },
+                enabled = meetingState is MeetingState.Ready,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Start")
+            }
 
-        // 5. 操作按鈕：Start (Mock)
-        // 目前 C++ 只會印 Log，還沒實作真正錄音
-        Button(
-            onClick = {
-                Log.d("App", "User clicked Start")
-                session.start()
-            },
-            // 只有 Ready 狀態才能開始
-            enabled = meetingState is MeetingState.Ready
-        ) {
-            Text("2. Start Recording")
-        }
+            // Stop
+            Button(
+                onClick = {
+                    Log.d("App", "User clicked Stop")
+                    session?.stop()
+                },
+                enabled = meetingState is MeetingState.Listening,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Stop")
+            }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 6. 操作按鈕：Stop
-        Button(
-            onClick = {
-                Log.d("App", "User clicked Stop")
-                session.stop()
-            },
-            // 只有 Listening 狀態才能停止
-            enabled = meetingState is MeetingState.Listening
-        ) {
-            Text("3. Stop Recording")
+            // Release
+            Button(
+                onClick = {
+                    Log.d("App", "User clicked Release")
+                    session?.release()
+                    transcriptItems.clear()
+                },
+                enabled = meetingState is MeetingState.Ready || meetingState is MeetingState.Error,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Release")
+            }
         }
     }
 }
@@ -206,5 +254,68 @@ fun StateIndicator(state: MeetingState) {
             color = color,
             modifier = Modifier.padding(8.dp)
         )
+    }
+}
+
+/**
+ * 語言選擇器 (Phase 4)
+ *
+ * 為什麼需要：允許使用者選擇 Auto（自動偵測）或指定語言（如中文、英文）
+ * 設計考量：
+ * - 預設為 Auto，符合多數使用情境
+ * - 只在 Idle 或 Error 狀態可切換（避免執行中切換導致狀態不一致）
+ * - 使用 DropdownMenu 提供清晰的選項
+ */
+@Composable
+fun LanguageSelector(
+    selectedLanguage: LanguageSetting,
+    onLanguageChanged: (LanguageSetting) -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    val languageOptions = listOf(
+        LanguageSetting.Auto to "Auto (自動偵測)",
+        LanguageSetting.Fixed("zh") to "中文 (Chinese)",
+        LanguageSetting.Fixed("en") to "English (英文)",
+        LanguageSetting.Fixed("ja") to "日本語 (Japanese)",
+        LanguageSetting.Fixed("ko") to "한국어 (Korean)"
+    )
+
+    val currentLabel = languageOptions.find { it.first == selectedLanguage }?.second ?: "Auto (自動偵測)"
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "語言設定 (Language):",
+            style = MaterialTheme.typography.labelLarge
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedButton(
+            onClick = { if (enabled) expanded = true },
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth(0.8f)
+        ) {
+            Text(currentLabel)
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            languageOptions.forEach { (setting, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        onLanguageChanged(setting)
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }

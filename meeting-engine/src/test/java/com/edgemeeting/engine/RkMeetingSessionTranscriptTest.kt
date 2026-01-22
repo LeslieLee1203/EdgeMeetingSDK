@@ -7,6 +7,7 @@ import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineBridge
 import com.edgemeeting.engine.fake.FakeAsrEngine
 import junit.framework.TestCase.assertEquals
+import junit.framework.TestCase.assertNotNull
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
@@ -412,6 +413,76 @@ class RkMeetingSessionTranscriptTest {
         assertTrue(
             "應收到至少 90% 的 callback segments，實際收到 ${fromCallback.size}/$segmentCount",
             fromCallback.size >= (segmentCount * 0.9).toInt()
+        )
+    }
+
+    // ===== T059: 語言代碼輸出測試 =====
+
+    /**
+     * T059: TranscriptSegment 應包含正確的 languageCode
+     *
+     * 為什麼需要測試：驗證語言偵測結果正確回傳給 Kotlin 層
+     * 預期行為：
+     * 1. 使用 LanguageSetting.Fixed("zh") 時，回傳的 segment 應包含 languageCode = "zh"
+     * 2. 使用 LanguageSetting.Auto 時，回傳的 segment 可能包含偵測到的語言代碼
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `transcript segment should contain languageCode when language is fixed`() = runTest {
+        // Given: 使用 FakeAsrEngine 並注入帶有 languageCode 的 segment
+        val fakeEngine = FakeAsrEngine()
+        val expectedSegment = TranscriptSegment(
+            id = "test-zh-001",
+            text = "你好世界",
+            speakerId = "Speaker1",
+            isFinal = true,
+            startTimeMs = 0,
+            endTimeMs = 1000,
+            languageCode = "zh"  // 預期的語言代碼
+        )
+        fakeEngine.injectTranscriptSegments(listOf(expectedSegment))
+
+        val session = RkMeetingSession(
+            bridge = fakeEngine,
+            timeSource = object : TimeSource {
+                override fun nowMs(): Long = testScheduler.currentTime
+            },
+            transcriptGenerator = MarkedTranscriptGenerator(),
+            transcriptDispatcher = StandardTestDispatcher(testScheduler)
+        )
+
+        session.prepare()
+        session.start()
+
+        // When: 觸發 onTranscript callback
+        val received = mutableListOf<TranscriptSegment>()
+        val job = backgroundScope.launch {
+            session.transcriptFlow.collect { segments ->
+                received.addAll(segments)
+            }
+        }
+
+        advanceTimeBy(1)
+        fakeEngine.triggerNextTranscript()
+        advanceTimeBy(100)
+
+        session.stop()
+        session.release()
+        job.cancel()
+
+        // Then: transcriptFlow 應收到帶有 languageCode 的 segment
+        val fromCallback = received.filter { !it.id.startsWith("generator-") }
+        assertTrue(
+            "應收到至少一個來自 callback 的 segment",
+            fromCallback.isNotEmpty()
+        )
+
+        val segment = fromCallback.find { it.id == expectedSegment.id }
+        assertNotNull("應找到 id 為 ${expectedSegment.id} 的 segment", segment)
+        assertEquals(
+            "languageCode 應為 zh",
+            "zh",
+            segment?.languageCode
         )
     }
 }
