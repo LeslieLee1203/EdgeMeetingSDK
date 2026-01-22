@@ -37,7 +37,16 @@ val session = RkMeetingSession(
 // 2. Prepare Engine (Load Models)
 session.prepare()
 
-// 3. Observe Transcripts
+// 3. Observe State (Error Handling)
+lifecycleScope.launch {
+    session.state.collect { state ->
+        if (state is MeetingState.Error) {
+            println("ASR error: ${state.code} ${state.message}")
+        }
+    }
+}
+
+// 4. Observe Transcripts
 lifecycleScope.launch {
     session.transcriptFlow.collect { segments ->
         segments.forEach { segment ->
@@ -46,14 +55,39 @@ lifecycleScope.launch {
     }
 }
 
-// 4. Start Recording
+// 5. Start Recording
 session.start()
 
-// 5. Stop Recording
+// 6. Stop Recording
 session.stop()
 
-// 6. Release Resources
+// 7. Release Resources
 session.release()
+```
+
+### Unified Engine Interface (EngineBridge + EngineConfig)
+
+```kotlin
+val bridge = JniEngineBridge()
+bridge.setCallback(object : EngineCallback {
+    override fun onAudioData(data: FloatArray) = Unit
+    override fun onTranscript(segment: TranscriptSegment) = Unit
+    override fun onError(code: Int, message: String) {
+        println("Engine error: $code $message")
+    }
+})
+
+val config = EngineConfig(
+    asrConfig = AsrConfig.Whisper(
+        modelsPath = "/data/data/com.edgemeeting.sdk/files/models",
+        language = LanguageSetting.Auto
+    )
+)
+
+when (val result = bridge.init(config)) {
+    BridgeResult.Success -> bridge.startRecording()
+    is BridgeResult.Failure -> println("Init failed: ${result.code} ${result.message}")
+}
 ```
 
 ## Architecture

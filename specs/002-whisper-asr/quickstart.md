@@ -86,6 +86,16 @@ file meeting-engine/src/main/jniLibs/arm64-v8a/librknnrt.so
 
 ### 量測方法
 
+**延遲 (Latency)**
+- **定義**：從 `start()` 到第一段 `transcriptFlow` 輸出的時間
+- **目標**：2-3 秒內產出第一段（符合驗收 T050）
+- **觀察方式**：
+  在 App 端記錄 `start()` 時間戳並在第一段字幕輸出時印出 log，計算差值。
+  你可以用 `Logcat` 直接觀察：
+  ```bash
+  adb logcat | grep RkMeetingSession
+  ```
+
 **Real Time Factor (RTF)**
 - **定義**：處理時間 / 音訊長度
 - **目標**：RTF < 0.3 (即 10秒音訊應在 3秒內處理完畢)
@@ -106,6 +116,12 @@ file meeting-engine/src/main/jniLibs/arm64-v8a/librknnrt.so
   1. `prepare()` 後會上升 (載入模型)
   2. `start()` 後 `pushAudio` 期間應保持穩定 (Buffer 有上限)
   3. `release()` 後應顯著下降 (釋放 RKNN Context)
+
+**LeakCanary（Debug Only）**
+- 在 `debug` build 啟用 LeakCanary
+- 操作流程：`prepare()` → `start()` → `stop()` → `release()` → 關閉 Activity
+- 若有 retained objects，LeakCanary 會在通知列提示並提供 Heap Dump
+  - 目標：`RkMeetingSession` 與 JNI 相關物件不應被持有
 
 ## 錯誤處理
 

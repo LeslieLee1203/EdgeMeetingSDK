@@ -268,7 +268,7 @@
 - [X] T050 ✅ 驗收：2 秒內產出段落
 - [X] T051 ✅ 驗收：20 秒音訊即時處理
 - [X] T052 ✅ 驗收：30 分鐘穩定性（無崩潰、無記憶體洩漏）
-- [ ] T052a 🔧 整合 LeakCanary（debug build）驗證記憶體 (最後再驗證)
+- [X] T052a 🔧 整合 LeakCanary（debug build）驗證記憶體 (最後再驗證)
   - 驗證 `release()` 後無 native memory leak
   - 驗證 30 分鐘後 heap 大小穩定（無持續增長）
   - 使用 Android Profiler 或 `dumpsys meminfo` 量測
@@ -304,43 +304,16 @@
 
 ---
 
-## Phase 5: User Story 3 - 錯誤與降級回饋 (Priority: P3)
-
-**Goal**: 模型/資源不可用時回傳錯誤碼與訊息
-
-**Independent Test**: 模型缺失時回傳可讀錯誤訊息與錯誤碼
-
-### 5.1 模型缺失錯誤（TDD）
-
-- [ ] T062 🔴 RED: 測試模型缺失時回傳 `ERR_MODEL_NOT_FOUND` 於 `RkMeetingSessionStateTest.kt`
-- [ ] T063 🟢 GREEN: 實作 `ModelAssetManager` 檔案存在檢查
-- [ ] T064 🟢 GREEN: 實作 native 模型缺失錯誤回傳
-- [ ] T065 🔵 REFACTOR: 檢視錯誤訊息可讀性
-
-### 5.2 模型載入失敗（TDD）
-
-- [ ] T066 🔴 RED: 測試模型損壞時回傳 `ERR_MODEL_LOAD_FAILED`
-- [ ] T067 🟢 GREEN: 實作 RKNN 載入錯誤捕獲於 `WhisperAsrEngine.cpp`
-- [ ] T068 🔵 REFACTOR: 檢視錯誤傳遞完整性
-
-### 5.3 降級與恢復（TDD）
-
-- [ ] T069 🔴 RED: 測試錯誤後可重新 `prepare()` 恢復
-- [ ] T070 🟢 GREEN: 實作錯誤狀態可恢復邏輯於 `RkMeetingSession.kt`
-- [ ] T071 🔵 REFACTOR: 檢視狀態機完整性
-
-**Checkpoint**: US3 可獨立運作並通過所有測試
-
----
-
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 **Purpose**: 文件完善、效能驗證與範例程式
 
+> **Note**: Phase 5（User Story 3）目前專案階段不需處理，已暫緩。
+
 > **Note**: `jniLibs` 設置已在 Phase 1（T002b-T002e）完成，CMake/Gradle 配置已在 Phase 2.8（T022d-T022e）完成。
 
-- [ ] T072 補上效能驗證說明於 `quickstart.md`（延遲、記憶體使用量測方法）
-- [ ] T073 更新 README 說明統一介面使用方式
+- [X] T072 補上效能驗證說明於 `quickstart.md`（延遲、記憶體使用量測方法）
+- [X] T073 更新 README 說明統一介面使用方式
 - [X] T074 撰寫 SDK 使用範例於 `app/src/main/java/.../MainActivity.kt`（含語言選擇 UI）
 
 ---
@@ -351,14 +324,13 @@
 
 - **Setup (Phase 1)**: 無依賴
 - **Foundational (Phase 2)**: 依賴 Phase 1 完成，阻擋全部故事
-- **User Stories (Phase 3-5)**: 依賴 Phase 2 完成，可依優先序進行
+- **User Stories (Phase 3-4)**: 依賴 Phase 2 完成，可依優先序進行
 - **Polish (Phase 6)**: 依賴完成任一或全部故事
 
 ### User Story Dependencies
 
 - **US1 (P1)**: 依賴 Foundational 完成
 - **US2 (P2)**: 依賴 US1 的 AsrConfig 傳遞機制
-- **US3 (P3)**: 依賴 US1 的錯誤回傳基礎
 
 ### Parallel Opportunities
 
@@ -388,8 +360,7 @@
 
 1. US1 (Phase 3) 完成並驗證
 2. US2 (Phase 4) 完成並驗證
-3. US3 (Phase 5) 完成並驗證
-4. Phase 6 收尾
+3. Phase 6 收尾
 
 ### 策略模式優勢
 

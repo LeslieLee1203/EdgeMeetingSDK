@@ -1,5 +1,24 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-01-22] - Phase 6 收尾與記憶體驗證
+
+### 新增
+- `app` 模組加入 LeakCanary（debug）以驗證釋放後記憶體穩定性
+
+### 文件
+- `specs/002-whisper-asr/quickstart.md` 補上延遲與記憶體量測方法，新增 LeakCanary 驗證步驟
+- `README.md` 補充統一介面（EngineBridge/EngineConfig/AsrConfig）使用方式與錯誤處理範例
+
+---
+
+## [2026-01-22] - 暫緩 Phase 5 任務
+
+### 調整
+- `specs/002-whisper-asr/tasks.md` 移除 Phase 5（US3）任務清單並加註暫緩說明
+- 更新 Phase 依賴與交付順序，對齊目前專案階段
+
+---
+
 ## [2026-01-21] - Phase 3.7 啟停轉錄流程完成
 
 ### T047-T049 TDD 完成 ✓
