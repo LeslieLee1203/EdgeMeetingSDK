@@ -82,6 +82,31 @@ file meeting-engine/src/main/jniLibs/arm64-v8a/librknnrt.so
 4. 透過 `transcriptFlow` 觀察逐段文字輸出
 5. 呼叫 `stop()` 停止轉錄並釋放資源
 
+## 效能驗證 (RTF & Memory)
+
+### 量測方法
+
+**Real Time Factor (RTF)**
+- **定義**：處理時間 / 音訊長度
+- **目標**：RTF < 0.3 (即 10秒音訊應在 3秒內處理完畢)
+- **觀察方式**：
+  連接 Logcat，過濾 `WhisperAsrEngine` tag：
+  ```bash
+  adb logcat | grep WhisperAsrEngine
+  ```
+  注意 Log 中的 `inference` 時間與音訊長度。由於目前是即時串流，處理通常在靜音段落或 buffer 滿時觸發。
+
+**記憶體使用 (Memory)**
+- **目標**：無記憶體洩漏 (Native Heap 穩定)
+- **觀察方式**：
+  ```bash
+  adb shell dumpsys meminfo com.edgemeeting.sdk
+  ```
+  重點觀察 `Native Heap` 的數值。
+  1. `prepare()` 後會上升 (載入模型)
+  2. `start()` 後 `pushAudio` 期間應保持穩定 (Buffer 有上限)
+  3. `release()` 後應顯著下降 (釋放 RKNN Context)
+
 ## 錯誤處理
 
 - 模型檔缺失或版本不相容時，應回傳錯誤碼 + 可讀訊息

@@ -1,336 +1,458 @@
 // meeting-engine/src/main/cpp/asr/WhisperAsrEngine.cpp
-// Whisper ASR 引擎實作
+// Whisper ASR 引擎實作 - 整合 RKNN Runtime
 
 #include "WhisperAsrEngine.h"
+#include "WhisperUtils.h"
+#include "rknn_api.h"
 #include <android/log.h>
 #include <cmath>
 #include <fstream>
-
-// RKNN headers（條件式 include，避免編譯時找不到）
-// 注意：實際部署到 RK3588 時需要 include 真實 RKNN SDK headers
-// #ifdef __aarch64__
-// #include "rknn_api.h"
-// #endif
+#include <vector>
+#include <string>
+#include <mutex>
 
 #define LOG_TAG "WhisperAsrEngine"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
-// RKNN API 簡化版本（用於編譯通過，實際使用時需要真實 RKNN SDK）
-// 為什麼使用簡化版本：允許在所有環境編譯與開發
-// 注意：實際部署到 RK3588 時需要連結真實 RKNN SDK
-typedef void* rknn_context;
-#define RKNN_SUCC 0
+// 輔助結構：管理 RKNN context 與 memory
+struct RknnModelContext {
+    rknn_context ctx = 0;
+    rknn_input_output_num io_num;
+    rknn_tensor_attr *input_attrs = nullptr;
+    rknn_tensor_attr *output_attrs = nullptr;
+};
 
-// 條件式定義 RKNN API（僅在未定義時）
-#ifndef RKNN_API_DEFINED
-inline int rknn_init(rknn_context* ctx, void* model, uint32_t size, uint32_t flag) {
-    (void)ctx; (void)model; (void)size; (void)flag;
-    return -1;  // 簡化版本：總是回傳失敗
+// 輔助函式：載入與釋放
+static int init_rknn_model(const char *model_path, RknnModelContext *app_ctx) {
+    int ret;
+    // Load RKNN Model
+    ret = rknn_init(&app_ctx->ctx, (void *)model_path, 0, 0, NULL);
+    if (ret < 0) {
+        LOGE("rknn_init fail! ret=%d, path=%s", ret, model_path);
+        return -1;
+    }
+
+    // Get IO Num
+    ret = rknn_query(app_ctx->ctx, RKNN_QUERY_IN_OUT_NUM, &app_ctx->io_num, sizeof(app_ctx->io_num));
+    if (ret != RKNN_SUCC) {
+        LOGE("rknn_query IO_NUM fail! ret=%d", ret);
+        return -1;
+    }
+
+    // Allocate attrs
+    app_ctx->input_attrs = (rknn_tensor_attr *)malloc(app_ctx->io_num.n_input * sizeof(rknn_tensor_attr));
+    app_ctx->output_attrs = (rknn_tensor_attr *)malloc(app_ctx->io_num.n_output * sizeof(rknn_tensor_attr));
+
+    // Get Input Attrs
+    for (int i = 0; i < app_ctx->io_num.n_input; i++) {
+        app_ctx->input_attrs[i].index = i;
+        ret = rknn_query(app_ctx->ctx, RKNN_QUERY_INPUT_ATTR, &(app_ctx->input_attrs[i]), sizeof(rknn_tensor_attr));
+        if (ret != RKNN_SUCC) {
+            LOGE("rknn_query INPUT_ATTR %d fail! ret=%d", i, ret);
+            return -1;
+        }
+    }
+
+    // Get Output Attrs
+    for (int i = 0; i < app_ctx->io_num.n_output; i++) {
+        app_ctx->output_attrs[i].index = i;
+        ret = rknn_query(app_ctx->ctx, RKNN_QUERY_OUTPUT_ATTR, &(app_ctx->output_attrs[i]), sizeof(rknn_tensor_attr));
+        if (ret != RKNN_SUCC) {
+            LOGE("rknn_query OUTPUT_ATTR %d fail! ret=%d", i, ret);
+            return -1;
+        }
+    }
+
+    return 0;
 }
-inline int rknn_destroy(rknn_context ctx) {
-    (void)ctx;
-    return 0;  // 簡化版本：總是回傳成功
+
+static int release_rknn_model(RknnModelContext *app_ctx) {
+    if (app_ctx->input_attrs != nullptr) {
+        free(app_ctx->input_attrs);
+        app_ctx->input_attrs = nullptr;
+    }
+    if (app_ctx->output_attrs != nullptr) {
+        free(app_ctx->output_attrs);
+        app_ctx->output_attrs = nullptr;
+    }
+    if (app_ctx->ctx != 0) {
+        rknn_destroy(app_ctx->ctx);
+        app_ctx->ctx = 0;
+    }
+    return 0;
 }
-#define RKNN_API_DEFINED
-#endif
+
+// PImpl idiom to hide implementation details from header
+struct WhisperAsrEngine::Impl {
+    RknnModelContext encoder;
+    RknnModelContext decoder;
+    
+    // Resources
+    float* mel_filters = nullptr;
+    VocabEntry* vocab = nullptr;
+    
+    // Config
+    int task_code = 50259; // 50259=en, 50260=zh
+    
+    // Runtime State
+    std::mutex mutex;
+    std::vector<int16_t> audioBuffer;
+    int silenceDurationMs = 0;
+    int segmentCounter = 0;
+    TranscriptCallback transcriptCallback;
+    
+    ~Impl() {
+        if (mel_filters) free(mel_filters);
+        // vocab memory management is tricky depending on how read_vocab allocates. 
+        // For simplicity assuming leakage or separate cleanup for now if implementation is complex.
+        // Actually read_vocab allocates 'token' with strdup, needs cleanup.
+        if (vocab) {
+            for(int i=0; i<VOCAB_NUM; i++) {
+                if(vocab[i].token) free(vocab[i].token);
+            }
+            delete[] vocab;
+        }
+    }
+};
 
 WhisperAsrEngine::WhisperAsrEngine()
-    : encoderContext_(nullptr)
-    , decoderContext_(nullptr)
-    , initialized_(false)
-    , silenceDurationMs_(0)
-    , segmentCounter_(0)
+    : initialized_(false)
+    , impl_(new Impl())
 {
-    // 為什麼在建構子初始化：確保成員變數有初始值
     LOGD("WhisperAsrEngine created");
 }
 
 WhisperAsrEngine::~WhisperAsrEngine() {
-    // 為什麼在解構子呼叫 release：RAII 原則，確保資源自動清理
     release();
+    delete impl_;
     LOGD("WhisperAsrEngine destroyed");
 }
 
+void WhisperAsrEngine::setTranscriptCallback(TranscriptCallback callback) {
+    impl_->transcriptCallback = std::move(callback);
+}
+
 bool WhisperAsrEngine::init(const std::string& modelsPath, const std::string& language) {
-    // 為什麼先檢查參數：防止空路徑導致後續錯誤
-    if (modelsPath.empty()) {
-        LOGE("init failed: modelsPath is empty");
+    if (modelsPath.empty()) return false;
+
+    // 1. 設定模型路徑
+    std::string encoderPath = modelsPath + "/whisper_encoder_base_20s.rknn";
+    std::string decoderPath = modelsPath + "/whisper_decoder_base_20s.rknn";
+    std::string vocabPath = modelsPath + "/vocab_en.txt"; // 預設英文
+    std::string filtersPath = modelsPath + "/mel_80_filters.txt";
+
+    // 2. 設定語言
+    if (language == "zh") {
+        impl_->task_code = 50260;
+        vocabPath = modelsPath + "/vocab_zh.txt";
+    } else {
+        impl_->task_code = 50259; // en
+    }
+
+    // 3. 讀取資源
+    // Mel Filters
+    impl_->mel_filters = (float*)malloc(N_MELS * MELS_FILTERS_SIZE * sizeof(float));
+    if (read_mel_filters(filtersPath.c_str(), impl_->mel_filters, N_MELS * MELS_FILTERS_SIZE) != 0) {
+        LOGE("Failed to read mel filters from %s", filtersPath.c_str());
         return false;
     }
 
-    if (language.empty()) {
-        LOGE("init failed: language is empty");
+    // Vocab
+    impl_->vocab = new VocabEntry[VOCAB_NUM];
+    memset(impl_->vocab, 0, sizeof(VocabEntry) * VOCAB_NUM);
+    if (read_vocab(vocabPath.c_str(), impl_->vocab) != 0) {
+        LOGE("Failed to read vocab from %s", vocabPath.c_str());
         return false;
     }
 
-    // 檢查模型檔案是否存在
-    if (!validateModelFiles(modelsPath)) {
-        LOGE("init failed: model files not found in %s", modelsPath.c_str());
+    // 4. 初始化 RKNN 模型
+    if (init_rknn_model(encoderPath.c_str(), &impl_->encoder) != 0) {
+        LOGE("Failed to init encoder");
+        return false;
+    }
+
+    if (init_rknn_model(decoderPath.c_str(), &impl_->decoder) != 0) {
+        LOGE("Failed to init decoder");
+        release_rknn_model(&impl_->encoder);
         return false;
     }
 
     modelsPath_ = modelsPath;
     language_ = language;
-
-    // 載入 encoder 模型
-    std::string encoderPath = modelsPath + "/whisper_encoder_base_20s.rknn";
-    if (!loadRknnModel(encoderPath, encoderContext_)) {
-        LOGE("init failed: cannot load encoder model from %s", encoderPath.c_str());
-        return false;
-    }
-
-    // 載入 decoder 模型
-    std::string decoderPath = modelsPath + "/whisper_decoder_base_20s.rknn";
-    if (!loadRknnModel(decoderPath, decoderContext_)) {
-        LOGE("init failed: cannot load decoder model from %s", decoderPath.c_str());
-        // 清理已載入的 encoder
-        if (encoderContext_ != nullptr) {
-            rknn_destroy(encoderContext_);
-            encoderContext_ = nullptr;
-        }
-        return false;
-    }
-
     initialized_ = true;
-    LOGI("WhisperAsrEngine initialized successfully (language=%s)", language.c_str());
+    LOGI("WhisperAsrEngine initialized successfully");
     return true;
 }
 
 void WhisperAsrEngine::start() {
-    // 為什麼檢查 initialized：防止未初始化就使用
-    if (!initialized_) {
-        LOGE("start failed: engine not initialized");
-        return;
-    }
-
-    // 重置內部狀態
-    audioBuffer_.clear();
-    silenceDurationMs_ = 0;
-    segmentCounter_ = 0;
-
-    LOGD("WhisperAsrEngine started");
-}
-
-void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
-    // 為什麼檢查參數：防止空指標導致 crash
-    if (pcm == nullptr || samples == 0) {
-        LOGE("pushAudio failed: invalid parameters");
-        return;
-    }
-
-    if (!initialized_) {
-        LOGE("pushAudio failed: engine not initialized");
-        return;
-    }
-
-    // 累積音訊至 buffer
-    // 為什麼累積：Whisper 需要至少 3 秒音訊進行推論
-    audioBuffer_.insert(audioBuffer_.end(), pcm, pcm + samples);
-
-    // 偵測靜音
-    bool isSilence = detectSilence(pcm, samples);
-
-    if (isSilence) {
-        // 累積靜音時間（假設 samples = 160 對應 10ms @ 16kHz）
-        silenceDurationMs_ += (samples * 1000) / 16000;
-
-        // 超過門檻時切段
-        if (silenceDurationMs_ >= SILENCE_THRESHOLD_MS && !audioBuffer_.empty()) {
-            LOGD("Silence detected (%d ms), triggering inference", silenceDurationMs_);
-
-            // 執行推論
-            std::string text = runInference(audioBuffer_.data(), audioBuffer_.size());
-
-            if (!text.empty()) {
-                // 輸出 TranscriptSegment
-                // 注意：startMs 與 endMs 需要實際時間戳，這裡簡化為 0
-                emitTranscript(text, 0, 0);
-            }
-
-            // 清空 buffer，準備下一段
-            audioBuffer_.clear();
-            silenceDurationMs_ = 0;
-        }
-    } else {
-        // 重置靜音計時器
-        silenceDurationMs_ = 0;
-    }
-
-    // 防止 buffer 無限增長（如 10 分鐘連續語音）
-    // 為什麼限制：避免 OOM
-    const size_t MAX_BUFFER_SAMPLES = 16000 * 600;  // 10 分鐘 @ 16kHz
-    if (audioBuffer_.size() > MAX_BUFFER_SAMPLES) {
-        LOGD("Buffer too large (%zu samples), forcing inference", audioBuffer_.size());
-
-        std::string text = runInference(audioBuffer_.data(), audioBuffer_.size());
-        if (!text.empty()) {
-            emitTranscript(text, 0, 0);
-        }
-
-        audioBuffer_.clear();
-    }
+    if (!initialized_) return;
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    impl_->audioBuffer.clear();
+    impl_->silenceDurationMs = 0;
+    impl_->segmentCounter = 0;
+    LOGD("WhisperAsrEngine started - Buffer cleared");
 }
 
 void WhisperAsrEngine::stop() {
-    if (!initialized_) {
-        return;
-    }
-
-    // Flush 剩餘音訊
-    // 為什麼需要 flush：確保最後一段語音也被處理
-    if (!audioBuffer_.empty()) {
-        LOGD("Flushing remaining audio (%zu samples)", audioBuffer_.size());
-
-        std::string text = runInference(audioBuffer_.data(), audioBuffer_.size());
+    if (!initialized_) return;
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    
+    // Flush remaining
+    if (!impl_->audioBuffer.empty()) {
+        LOGD("Stop: Flushing remaining audio (%zu samples)", impl_->audioBuffer.size());
+        std::string text = runInference(impl_->audioBuffer.data(), impl_->audioBuffer.size());
         if (!text.empty()) {
             emitTranscript(text, 0, 0);
+        } else {
+            LOGD("Stop: Flush resulted in empty transcript");
         }
-
-        audioBuffer_.clear();
+        impl_->audioBuffer.clear();
     }
-
-    LOGD("WhisperAsrEngine stopped");
 }
 
 void WhisperAsrEngine::release() {
-    // 為什麼檢查 initialized：防止重複釋放
-    if (!initialized_) {
-        return;
-    }
-
-    // 釋放 RKNN contexts
-    if (encoderContext_ != nullptr) {
-        rknn_destroy(encoderContext_);
-        encoderContext_ = nullptr;
-        LOGD("Encoder context released");
-    }
-
-    if (decoderContext_ != nullptr) {
-        rknn_destroy(decoderContext_);
-        decoderContext_ = nullptr;
-        LOGD("Decoder context released");
-    }
-
-    // 清空內部狀態
-    audioBuffer_.clear();
-    modelsPath_.clear();
-    language_.clear();
+    if (!initialized_) return;
+    
+    release_rknn_model(&impl_->encoder);
+    release_rknn_model(&impl_->decoder);
+    
     initialized_ = false;
-
     LOGD("WhisperAsrEngine released");
 }
 
-// === 私有輔助方法 ===
+void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
+    if (!initialized_ || samples == 0) return;
 
-bool WhisperAsrEngine::loadRknnModel(const std::string& modelPath, rknn_context& context) {
-    // 為什麼讀取檔案：RKNN API 需要 model buffer
-    std::ifstream file(modelPath, std::ios::binary | std::ios::ate);
-    if (!file.is_open()) {
-        LOGE("Failed to open model file: %s", modelPath.c_str());
-        return false;
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    
+    impl_->audioBuffer.insert(impl_->audioBuffer.end(), pcm, pcm + samples);
+    
+    // 簡單靜音偵測
+    bool isSilence = detectSilence(pcm, samples);
+    
+    // Debug Log (sampling to avoid spamming)
+    if (impl_->audioBuffer.size() % (16000 * 5) < samples) { // Log roughly every 5 seconds
+        LOGD("pushAudio: Buffer size = %zu, isSilence = %d, duration = %d ms", 
+             impl_->audioBuffer.size(), isSilence, impl_->silenceDurationMs);
     }
 
-    // 取得檔案大小
-    size_t fileSize = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    // 讀取模型至 buffer
-    std::vector<char> modelBuffer(fileSize);
-    if (!file.read(modelBuffer.data(), fileSize)) {
-        LOGE("Failed to read model file: %s", modelPath.c_str());
-        return false;
+    if (isSilence) {
+        impl_->silenceDurationMs += (samples * 1000) / 16000;
+        
+        const int SILENCE_THRESHOLD_MS = 700;
+        // 3秒以上才處理，且需要靜音斷句
+        // 累積樣本數 > 3秒 (16000*3 = 48000)
+        if (impl_->audioBuffer.size() > 48000 && impl_->silenceDurationMs >= SILENCE_THRESHOLD_MS) {
+            LOGD("Triggering inference (Silence): Buffer=%zu, Silence=%d ms", 
+                 impl_->audioBuffer.size(), impl_->silenceDurationMs);
+                 
+            std::string text = runInference(impl_->audioBuffer.data(), impl_->audioBuffer.size());
+            if (!text.empty()) {
+                emitTranscript(text, 0, 0);
+            }
+            impl_->audioBuffer.clear();
+            impl_->silenceDurationMs = 0;
+        }
+    } else {
+        impl_->silenceDurationMs = 0;
     }
-
-    LOGD("Model file loaded: %s (%zu bytes)", modelPath.c_str(), fileSize);
-
-    // 初始化 RKNN context
-    // 注意：此處使用簡化實作，實際部署時需要呼叫真實 rknn_init
-    int ret = rknn_init(&context, modelBuffer.data(), fileSize, 0);
-    if (ret != RKNN_SUCC) {
-        // 簡化版本總是回傳失敗，這裡跳過錯誤處理
-        LOGD("RKNN init returned %d (using simplified implementation)", ret);
+    
+    // 強制截斷：如果太長 (例如 20秒) 即使沒靜音也要處理
+    if (impl_->audioBuffer.size() > 16000 * 20) {
+        LOGD("Triggering inference (MaxLength): Buffer=%zu", impl_->audioBuffer.size());
+        
+        std::string text = runInference(impl_->audioBuffer.data(), impl_->audioBuffer.size());
+        if (!text.empty()) {
+            emitTranscript(text, 0, 0);
+        }
+        impl_->audioBuffer.clear();
+        impl_->silenceDurationMs = 0;
     }
-
-    // 為了開發環境測試，設定一個 fake context
-    context = reinterpret_cast<rknn_context>(0x1);
-    LOGD("RKNN context created (simplified for development)");
-    return true;
 }
 
-bool WhisperAsrEngine::validateModelFiles(const std::string& modelsPath) {
-    // 檢查兩個模型檔是否存在
-    std::string encoderPath = modelsPath + "/whisper_encoder_base_20s.rknn";
-    std::string decoderPath = modelsPath + "/whisper_decoder_base_20s.rknn";
+// === Inference Logic (Ported from whisper.cc) ===
 
-    std::ifstream encoderFile(encoderPath);
-    std::ifstream decoderFile(decoderPath);
+static int inference_encoder(RknnModelContext *ctx, const std::vector<float>& audio_data, float *mel_filters, float *encoder_output) {
+    int ret;
+    rknn_input inputs[1];
+    rknn_output outputs[1];
+    memset(inputs, 0, sizeof(inputs));
+    memset(outputs, 0, sizeof(outputs));
 
-    bool encoderExists = encoderFile.good();
-    bool decoderExists = decoderFile.good();
+    // Input: [1, 80, 2000] (N_MELS * ENCODER_INPUT_SIZE)
+    
+    inputs[0].index = 0;
+    inputs[0].type = RKNN_TENSOR_FLOAT32;
+    inputs[0].size = N_MELS * ENCODER_INPUT_SIZE * sizeof(float);
+    inputs[0].buf = (float *)malloc(inputs[0].size);
+    
+    memcpy(inputs[0].buf, audio_data.data(), inputs[0].size);
 
-    if (!encoderExists) {
-        LOGE("Encoder model not found: %s", encoderPath.c_str());
+    ret = rknn_inputs_set(ctx->ctx, 1, inputs);
+    if(ret < 0) { free(inputs[0].buf); LOGE("rknn_inputs_set failed (encoder)"); return ret; }
+
+    ret = rknn_run(ctx->ctx, nullptr);
+    if(ret < 0) { free(inputs[0].buf); LOGE("rknn_run failed (encoder)"); return ret; }
+
+    outputs[0].want_float = 1;
+    ret = rknn_outputs_get(ctx->ctx, 1, outputs, NULL);
+    if(ret < 0) { free(inputs[0].buf); LOGE("rknn_outputs_get failed (encoder)"); return ret; }
+
+    // Copy output
+    memcpy(encoder_output, (float *)outputs[0].buf, ENCODER_OUTPUT_SIZE * sizeof(float));
+
+    rknn_outputs_release(ctx->ctx, 1, outputs);
+    free(inputs[0].buf);
+    return 0;
+}
+
+static int inference_decoder(RknnModelContext *ctx, float *encoder_output, VocabEntry *vocab, int task_code, std::string &result_text) {
+    int ret;
+    rknn_input inputs[2];
+    rknn_output outputs[1];
+    memset(inputs, 0, sizeof(inputs));
+    memset(outputs, 0, sizeof(outputs));
+
+    // Inputs allocation
+    inputs[0].index = 0;
+    inputs[0].type = RKNN_TENSOR_INT64;
+    inputs[0].size = MAX_TOKENS * sizeof(int64_t);
+    inputs[0].buf = (int64_t *)malloc(inputs[0].size); // tokens
+
+    inputs[1].index = 1;
+    inputs[1].type = RKNN_TENSOR_FLOAT32;
+    inputs[1].size = DECODER_INPUT_SIZE * sizeof(float);
+    inputs[1].buf = (float *)malloc(inputs[1].size); // encoder_output
+    memcpy(inputs[1].buf, encoder_output, inputs[1].size);
+
+    // Initial tokens
+    int64_t tokens[MAX_TOKENS + 1] = {50258, (int64_t)task_code, 50359, 50363}; 
+    int next_token = 50258;
+    int end_token = 50257;
+    int pop_id = MAX_TOKENS;
+    int count = 0;
+    
+    std::string all_token_str = "";
+
+    // Fill buffer pattern
+    for (int i = 0; i < MAX_TOKENS / 4; i++) {
+        memcpy(&tokens[i * 4], tokens, 4 * sizeof(int64_t));
     }
 
-    if (!decoderExists) {
-        LOGE("Decoder model not found: %s", decoderPath.c_str());
-    }
+    while (next_token != end_token && count < 100) { // Limit loop
+        count++;
+        memcpy(inputs[0].buf, tokens, inputs[0].size);
 
-    return encoderExists && decoderExists;
+        rknn_inputs_set(ctx->ctx, 2, inputs);
+        rknn_run(ctx->ctx, nullptr);
+        
+        outputs[0].want_float = 1;
+        rknn_outputs_get(ctx->ctx, 1, outputs, NULL);
+
+        next_token = argmax((float *)outputs[0].buf);
+        
+        // Debug first few tokens
+        if (count < 5) {
+            LOGD("Decoder Step %d: TokenID=%d", count, next_token);
+        }
+
+        if (next_token < VOCAB_NUM) {
+             if (vocab[next_token].token) {
+                 all_token_str += vocab[next_token].token;
+             }
+        }
+
+        int timestamp_begin = 50364;
+        if (next_token > timestamp_begin) {
+            continue;
+        }
+        
+        if (pop_id > 4) pop_id--;
+        tokens[MAX_TOKENS] = next_token;
+        for (int j = pop_id; j < MAX_TOKENS; j++) {
+            tokens[j] = tokens[j + 1];
+        }
+
+        rknn_outputs_release(ctx->ctx, 1, outputs);
+    }
+    
+    free(inputs[0].buf);
+    free(inputs[1].buf);
+    
+    // Post process
+    replace_substr(all_token_str, "\u0120", " ");
+    replace_substr(all_token_str, "<|endoftext|>", "");
+    replace_substr(all_token_str, "\n", "");
+    
+    if (task_code == 50260) {
+        all_token_str = base64_decode(all_token_str);
+    }
+    
+    result_text = all_token_str;
+    LOGI("Decoder Result: '%s'", result_text.c_str());
+    return 0;
 }
 
 std::string WhisperAsrEngine::runInference(const int16_t* pcmData, size_t samples) {
-    // 為什麼簡化實作：完整的 Whisper 推論邏輯複雜，Phase 3.3 先建立框架
-    // 實際實作需要：
-    // 1. PCM → mel-spectrogram (80-bin mel filterbank)
-    // 2. encoder: mel → features
-    // 3. decoder: features → tokens (beam search)
-    // 4. tokens → text (tokenizer decode)
+    if (!initialized_) return "";
+    
+    LOGD("runInference: Processing %zu samples", samples);
+    
+    // 1. Convert PCM to Float & Preprocess
+    std::vector<float> audio_float(samples);
+    for(size_t i=0; i<samples; i++) {
+        audio_float[i] = pcmData[i] / 32768.0f;
+    }
 
-    LOGD("runInference called with %zu samples (simplified)", samples);
+    std::vector<float> x_mel;
+    
+    audio_preprocess(audio_float.data(), samples, impl_->mel_filters, x_mel);
+    LOGD("runInference: Preprocessing done. Mel size: %zu", x_mel.size());
 
-    // 簡化實作：回傳測試字串
-    // Phase 3.5 將實作真實推論邏輯
-    return "Test transcript";
+    // 2. Encoder
+    float *encoder_output = (float *)malloc(ENCODER_OUTPUT_SIZE * sizeof(float));
+    if (inference_encoder(&impl_->encoder, x_mel, impl_->mel_filters, encoder_output) != 0) {
+        LOGE("Encoder inference failed");
+        free(encoder_output);
+        return "";
+    }
+    LOGD("runInference: Encoder done");
+
+    // 3. Decoder
+    std::string text;
+    if (inference_decoder(&impl_->decoder, encoder_output, impl_->vocab, impl_->task_code, text) != 0) {
+        LOGE("Decoder inference failed");
+        free(encoder_output);
+        return "";
+    }
+    
+    free(encoder_output);
+    return text;
+}
+
+bool WhisperAsrEngine::loadRknnModel(const std::string& modelPath, void* context) {
+    return false; // Deprecated, using init_rknn_model locally
+}
+
+bool WhisperAsrEngine::validateModelFiles(const std::string& modelsPath) {
+    return true; // Simplified
 }
 
 bool WhisperAsrEngine::detectSilence(const int16_t* pcm, size_t samples) {
-    // 計算 RMS (Root Mean Square)
-    // 為什麼使用 RMS：簡單且有效的音量指標
     long long sum = 0;
     for (size_t i = 0; i < samples; i++) {
         sum += static_cast<long long>(pcm[i]) * pcm[i];
     }
-
     double rms = std::sqrt(static_cast<double>(sum) / samples);
-
-    // 靜音門檻（經驗值，可調整）
-    // 為什麼 500：int16_t 範圍為 -32768 ~ 32767，500 約為 1.5% 音量
-    const double SILENCE_THRESHOLD = 500.0;
-
-    return rms < SILENCE_THRESHOLD;
+    return rms < 500.0; // Threshold
 }
 
 void WhisperAsrEngine::emitTranscript(const std::string& text, long startMs, long endMs) {
-    segmentCounter_++;
-
-    // 生成 segment ID
-    std::string segmentId = "seg-" + std::to_string(segmentCounter_);
-
-    LOGI("Transcript #%d: %s (start=%ld, end=%ld)",
-         segmentCounter_, text.c_str(), startMs, endMs);
-
-    // T041: 呼叫 callback（如果已設定）
-    if (transcriptCallback_) {
-        transcriptCallback_(
-            segmentId,
-            text,
-            "Unknown",  // speakerId（Phase 4 實作說話者識別）
-            true,       // isFinal
-            startMs,
-            endMs
-        );
+    impl_->segmentCounter++;
+    std::string segmentId = "seg-" + std::to_string(impl_->segmentCounter);
+    if (impl_->transcriptCallback) {
+        impl_->transcriptCallback(segmentId, text, "User", true, startMs, endMs);
     }
 }

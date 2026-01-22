@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.edgemeeting.core.MeetingSession
 import com.edgemeeting.core.model.MeetingState
+import com.edgemeeting.engine.ModelAssetManager
 import com.edgemeeting.engine.RkMeetingSession
 import com.edgemeeting.engine.bridge.JniEngineBridge
 import com.edgemeeting.sdk.ui.theme.EdgeMeetingSDKTheme
@@ -41,7 +42,10 @@ class MainActivity : ComponentActivity() {
     // 在真實 App 中這通常由 Hilt/Koin 負責，但 Walking Skeleton 階段直接 new 最快
     private val session: MeetingSession by lazy {
         val bridge = JniEngineBridge() // 載入 .so 檔
-        RkMeetingSession(bridge)       // 注入到 Session
+        RkMeetingSession(
+            bridge = bridge,
+            modelProvider = { ModelAssetManager.ensureModels(this) }
+        )       // 注入到 Session
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -166,6 +170,20 @@ fun MeetingScreen(
             enabled = meetingState is MeetingState.Ready
         ) {
             Text("2. Start Recording")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 6. 操作按鈕：Stop
+        Button(
+            onClick = {
+                Log.d("App", "User clicked Stop")
+                session.stop()
+            },
+            // 只有 Listening 狀態才能停止
+            enabled = meetingState is MeetingState.Listening
+        ) {
+            Text("3. Stop Recording")
         }
     }
 }

@@ -43,9 +43,14 @@ object ModelConstants {
      * Whisper RKNN 模型組成：
      * - encoder: 音訊特徵提取（Mel Spectrogram → Hidden States）
      * - decoder: 文字生成（Hidden States → Tokens → Text）
+     * - vocab: 詞彙表（Token ID ↔ Text）
+     * - filters: Mel Spectrogram 濾波器參數
      */
     val EXPECTED_MODEL_FILES = listOf(
         "whisper_encoder_base_20s.rknn",
-        "whisper_decoder_base_20s.rknn"
+        "whisper_decoder_base_20s.rknn",
+        "vocab_en.txt",
+        "vocab_zh.txt",
+        "mel_80_filters.txt"
     )
 }

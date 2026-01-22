@@ -361,4 +361,81 @@ class RkMeetingSessionTest {
             currentState is MeetingState.Error
         )
     }
+
+    // ===== T055: 語言設定傳遞測試 =====
+
+    /**
+     * T055: prepare() 傳入特定的語言設定，應正確傳遞至 AsrConfig
+     *
+     * 為什麼需要測試：驗證語言參數能正確傳遞給底層引擎
+     * 預期行為：
+     * 1. RkMeetingSession 構造時傳入 LanguageSetting.Specific("zh")
+     * 2. prepare() 後，bridge.init() 收到的 EngineConfig.asrConfig
+     * 3. 其中的 language 應為 "zh"
+     */
+    @Test
+    fun `prepare with specific language setting should propagate to AsrConfig`() = runTest {
+        // Arrange
+        val fakeBridge = FakeEngineBridge()
+        val fakeModelsDir = File("/fake/models/dir")
+        
+        val session = RkMeetingSession(
+            bridge = fakeBridge,
+            languageSetting = LanguageSetting.Fixed("zh"),
+            modelProvider = { Result.success(ModelsReady(fakeModelsDir)) }
+        )
+
+        // Act
+        session.prepare()
+
+        // Assert
+        val config = fakeBridge.lastConfig
+        assertNotNull("EngineConfig should not be null", config)
+        
+        val asrConfig = config!!.asrConfig as? AsrConfig.Whisper
+        assertNotNull("AsrConfig should be Whisper", asrConfig)
+        
+        // AsrConfig.Whisper.language 是 LanguageSetting 類型
+        // 我們需要轉型為 Fixed 並檢查 languageCode
+        val languageSetting = asrConfig?.language
+        assertTrue("Language should be Fixed", languageSetting is LanguageSetting.Fixed)
+        assertEquals(
+            "Language code should be propagated", 
+            "zh", 
+            (languageSetting as LanguageSetting.Fixed).languageCode
+        )
+    }
+
+    // ===== T069: 錯誤恢復測試 =====
+
+    /**
+     * T069: 錯誤後應可重新 prepare() 恢復
+     *
+     * 為什麼需要測試：確保暫時性錯誤（如 IO 錯誤）排除後，使用者可重試
+     * 預期行為：
+     * 1. 第一次 prepare() 失敗，狀態變為 Error
+     * 2. 第二次 prepare() 成功，狀態變為 Ready
+     */
+    @Test
+    fun `should be able to recover from error by calling prepare again`() = runTest {
+        // Arrange
+        val fakeBridge = FakeEngineBridge()
+        // 第一次設定失敗
+        fakeBridge.nextInitResult = BridgeResult.Failure(101, "Fail 1")
+        
+        val session = RkMeetingSession(bridge = fakeBridge)
+
+        // Act 1: 第一次嘗試
+        session.prepare()
+        assertTrue("第一次應失敗", session.state.value is MeetingState.Error)
+
+        // Arrange 2: 設定下次成功
+        fakeBridge.nextInitResult = BridgeResult.Success
+        
+        // Act 2: 重試
+        session.prepare()
+
+        // Assert
+        assertEquals("第二次應成功並進入 Ready", MeetingState.Ready, session.state.value)
+    }
 }

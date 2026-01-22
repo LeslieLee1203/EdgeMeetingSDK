@@ -38,6 +38,13 @@ import kotlinx.coroutines.launch
 class RkMeetingSession(
     private val bridge: EngineBridge,
     /**
+     * 語言設定 (Phase 4 新增)
+     *
+     * 預設為 Auto (自動偵測)。
+     * 可傳入 LanguageSetting.Fixed("zh") 指定語言。
+     */
+    private val languageSetting: LanguageSetting = LanguageSetting.Auto,
+    /**
      * 模型準備函數
      *
      * 為什麼使用 lambda 而非直接依賴 ModelAssetManager：
@@ -164,7 +171,7 @@ class RkMeetingSession(
                     val modelsReady = modelsResult.getOrThrow()
                     AsrConfig.Whisper(
                         modelsPath = modelsReady.modelsDir.absolutePath,
-                        language = LanguageSetting.Auto  // TODO: Phase 4 將支援語言設定
+                        language = languageSetting
                     )
                 }
                 else -> {
@@ -212,11 +219,14 @@ class RkMeetingSession(
         // 呼叫 JNI
         bridge.startRecording()
 
-        // 啟動字幕輸出（在 Listening 狀態下應該有輸出）
-        startTranscriptLoop { segments ->
-            val emitted = transcriptFlowInternal.tryEmit(segments)
-            if (!emitted) {
-                android.util.Log.w("TRANSCRIPT_FLOW", "Drop transcript emission")
+        // 僅在純錄音模式（無 modelProvider）時啟動模擬字幕
+        // 在 ASR 模式下，字幕由 bridge.onTranscript 透過 setCallback 提供
+        if (modelProvider == null) {
+            startTranscriptLoop { segments ->
+                val emitted = transcriptFlowInternal.tryEmit(segments)
+                if (!emitted) {
+                    android.util.Log.w("TRANSCRIPT_FLOW", "Drop transcript emission")
+                }
             }
         }
 

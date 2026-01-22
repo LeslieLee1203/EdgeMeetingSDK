@@ -68,6 +68,8 @@ add_library(
         asr/AsrEngine.h
         asr/WhisperAsrEngine.h
         asr/WhisperAsrEngine.cpp
+        asr/WhisperUtils.h
+        asr/WhisperUtils.cpp
 )
 
 # 4. 連結 Library
@@ -79,6 +81,8 @@ target_link_libraries(
         log
         # Android 系統 Audio 工具
         android
+        # FFTW
+        ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/fftw/lib/${ANDROID_ABI}/libfftw3f.a
 )
 
 # 連結 RKNN Runtime（如果存在）
@@ -87,6 +91,12 @@ if(TARGET rknnrt)
     target_link_libraries(meeting-engine rknnrt)
     message(STATUS "Linked RKNN Runtime to meeting-engine")
 endif()
+
+# 設定 Include路徑
+target_include_directories(meeting-engine PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/fftw/include
+)
 
 # 4. C++ 單元測試（Google Test）
 # 為什麼需要 C++ 測試：
@@ -107,6 +117,7 @@ if(TEST_SOURCES)
             AudioProcessor.cpp
             # Phase 3 ASR 測試源碼
             asr/WhisperAsrEngine.cpp
+            asr/WhisperUtils.cpp
     )
 
     target_link_libraries(
@@ -115,6 +126,18 @@ if(TEST_SOURCES)
             oboe::oboe
             log
             android
+            # FFTW
+            ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/fftw/lib/${ANDROID_ABI}/libfftw3f.a
+    )
+
+    if(TARGET rknnrt)
+        target_link_libraries(asr_tests rknnrt)
+    endif()
+
+    # 設定 Include路徑 (測試也需要)
+    target_include_directories(asr_tests PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/fftw/include
     )
 
     # 注意：gtest_discover_tests 在交叉編譯時無法使用（無法在 macOS 執行 ARM64 binary）
