@@ -101,6 +101,7 @@ struct WhisperAsrEngine::Impl {
     std::vector<int16_t> audioBuffer;
     int silenceDurationMs = 0;
     int segmentCounter = 0;
+    long totalAudioMs = 0;  // 累積的音訊總時間（毫秒）- 用於計算時間戳
     TranscriptCallback transcriptCallback;
     
     ~Impl() {
@@ -192,19 +193,26 @@ void WhisperAsrEngine::start() {
     impl_->audioBuffer.clear();
     impl_->silenceDurationMs = 0;
     impl_->segmentCounter = 0;
+    impl_->totalAudioMs = 0;  // 重置累積時間
     LOGD("WhisperAsrEngine started - Buffer cleared");
 }
 
 void WhisperAsrEngine::stop() {
     if (!initialized_) return;
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    
+
     // Flush remaining
     if (!impl_->audioBuffer.empty()) {
         LOGD("Stop: Flushing remaining audio (%zu samples)", impl_->audioBuffer.size());
+
+        // 計算時間戳：片段開始時間 = totalAudioMs - buffer 的持續時間
+        long bufferDurationMs = (impl_->audioBuffer.size() * 1000) / 16000;
+        long startMs = impl_->totalAudioMs - bufferDurationMs;
+        long endMs = impl_->totalAudioMs;
+
         std::string text = runInference(impl_->audioBuffer.data(), impl_->audioBuffer.size());
         if (!text.empty()) {
-            emitTranscript(text, 0, 0);
+            emitTranscript(text, startMs, endMs);
         } else {
             LOGD("Stop: Flush resulted in empty transcript");
         }
@@ -226,31 +234,39 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
     if (!initialized_ || samples == 0) return;
 
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    
+
     impl_->audioBuffer.insert(impl_->audioBuffer.end(), pcm, pcm + samples);
-    
+
+    // 更新累積音訊時間（16kHz 採樣率，samples * 1000 / 16000 = 毫秒）
+    impl_->totalAudioMs += (samples * 1000) / 16000;
+
     // 簡單靜音偵測
     bool isSilence = detectSilence(pcm, samples);
-    
+
     // Debug Log (sampling to avoid spamming)
     if (impl_->audioBuffer.size() % (16000 * 5) < samples) { // Log roughly every 5 seconds
-        LOGD("pushAudio: Buffer size = %zu, isSilence = %d, duration = %d ms", 
-             impl_->audioBuffer.size(), isSilence, impl_->silenceDurationMs);
+        LOGD("pushAudio: Buffer size = %zu, isSilence = %d, duration = %d ms, totalAudioMs = %ld",
+             impl_->audioBuffer.size(), isSilence, impl_->silenceDurationMs, impl_->totalAudioMs);
     }
 
     if (isSilence) {
         impl_->silenceDurationMs += (samples * 1000) / 16000;
-        
+
         const int SILENCE_THRESHOLD_MS = 700;
         // 3秒以上才處理，且需要靜音斷句
         // 累積樣本數 > 3秒 (16000*3 = 48000)
         if (impl_->audioBuffer.size() > 48000 && impl_->silenceDurationMs >= SILENCE_THRESHOLD_MS) {
-            LOGD("Triggering inference (Silence): Buffer=%zu, Silence=%d ms", 
+            LOGD("Triggering inference (Silence): Buffer=%zu, Silence=%d ms",
                  impl_->audioBuffer.size(), impl_->silenceDurationMs);
-                 
+
+            // 計算時間戳：片段開始時間 = totalAudioMs - buffer 的持續時間
+            long bufferDurationMs = (impl_->audioBuffer.size() * 1000) / 16000;
+            long startMs = impl_->totalAudioMs - bufferDurationMs;
+            long endMs = impl_->totalAudioMs;
+
             std::string text = runInference(impl_->audioBuffer.data(), impl_->audioBuffer.size());
             if (!text.empty()) {
-                emitTranscript(text, 0, 0);
+                emitTranscript(text, startMs, endMs);
             }
             impl_->audioBuffer.clear();
             impl_->silenceDurationMs = 0;
@@ -258,14 +274,19 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
     } else {
         impl_->silenceDurationMs = 0;
     }
-    
+
     // 強制截斷：如果太長 (例如 20秒) 即使沒靜音也要處理
     if (impl_->audioBuffer.size() > 16000 * 20) {
         LOGD("Triggering inference (MaxLength): Buffer=%zu", impl_->audioBuffer.size());
-        
+
+        // 計算時間戳：片段開始時間 = totalAudioMs - buffer 的持續時間
+        long bufferDurationMs = (impl_->audioBuffer.size() * 1000) / 16000;
+        long startMs = impl_->totalAudioMs - bufferDurationMs;
+        long endMs = impl_->totalAudioMs;
+
         std::string text = runInference(impl_->audioBuffer.data(), impl_->audioBuffer.size());
         if (!text.empty()) {
-            emitTranscript(text, 0, 0);
+            emitTranscript(text, startMs, endMs);
         }
         impl_->audioBuffer.clear();
         impl_->silenceDurationMs = 0;

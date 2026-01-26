@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Language Preference
+
+**Communication Language**: Use Traditional Chinese (Taiwan, zh_TW) for all responses and documentation. Code comments, commit messages, and technical documentation should be written in Traditional Chinese.
+
 ## Build Commands
 
 ```bash

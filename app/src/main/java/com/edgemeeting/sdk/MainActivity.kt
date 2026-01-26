@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import com.edgemeeting.sdk.util.TimeFormatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -171,8 +172,10 @@ fun MeetingScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             recentSegments.forEach { segment ->
+                val startTime = TimeFormatter.formatMillisToTime(segment.startTimeMs)
+                val endTime = TimeFormatter.formatMillisToTime(segment.endTimeMs)
                 Text(
-                    text = "[${segment.startTimeMs}-${segment.endTimeMs}] ${segment.text}",
+                    text = "[$startTime-$endTime] ${segment.text}",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
