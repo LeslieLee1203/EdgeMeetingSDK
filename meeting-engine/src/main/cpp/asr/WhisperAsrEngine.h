@@ -58,6 +58,7 @@ private:
     // Private helpers for internal logic
     std::string runInference(const int16_t* pcmData, size_t samples);
     bool detectSilence(const int16_t* pcm, size_t samples);
+    bool shouldSkipInference(const int16_t* pcm, size_t samples);
     void emitTranscript(const std::string& text, long startMs, long endMs);
     
     // Load/Validate helpers

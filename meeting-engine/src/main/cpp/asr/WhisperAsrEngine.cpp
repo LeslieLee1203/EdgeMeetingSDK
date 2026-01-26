@@ -205,6 +205,17 @@ void WhisperAsrEngine::stop() {
     if (!impl_->audioBuffer.empty()) {
         LOGD("Stop: Flushing remaining audio (%zu samples)", impl_->audioBuffer.size());
 
+        // Phase 3: Check if remaining audio is just noise/silence
+        // 結尾幻覺防護 (End-of-Session Hallucination Protection)
+        // 當使用者按下停止時，最後一段 Buffer 往往只包含按鈕聲或環境音。
+        // Whisper 極容易將這段無意義的結尾翻譯成 "Bye", "Thank you for watching" 等。
+        // 強制檢查能量分佈，若無效則直接丟棄。
+        if (shouldSkipInference(impl_->audioBuffer.data(), impl_->audioBuffer.size())) {
+            LOGD("Stop: Skipping flush (audio energy too low)");
+            impl_->audioBuffer.clear();
+            return;
+        }
+
         // 計算時間戳：片段開始時間 = totalAudioMs - buffer 的持續時間
         long bufferDurationMs = (impl_->audioBuffer.size() * 1000) / 16000;
         long startMs = impl_->totalAudioMs - bufferDurationMs;
@@ -256,6 +267,18 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
         // 3秒以上才處理，且需要靜音斷句
         // 累積樣本數 > 3秒 (16000*3 = 48000)
         if (impl_->audioBuffer.size() > 48000 && impl_->silenceDurationMs >= SILENCE_THRESHOLD_MS) {
+            // Phase 2: Energy Pre-check before inference (縱深防禦策略)
+            // 即使滿足了「靜音觸發」條件，我們仍需進行二次檢查。
+            // 理由：若 buffer 內累積的主要是噪音（剛好超過閾值），送入 NPU 只會得到幻覺。
+            // 這裡進行一個極低成本的 CPU 檢查，若判定無效則直接丟棄，
+            // 既省電又避免了 "Thank you" 類型的幻覺。
+            if (shouldSkipInference(impl_->audioBuffer.data(), impl_->audioBuffer.size())) {
+                LOGD("Skipping inference: Audio energy too low (likely silence/noise)");
+                impl_->audioBuffer.clear();
+                impl_->silenceDurationMs = 0;
+                return;
+            }
+
             LOGD("Triggering inference (Silence): Buffer=%zu, Silence=%d ms",
                  impl_->audioBuffer.size(), impl_->silenceDurationMs);
 
@@ -462,12 +485,100 @@ bool WhisperAsrEngine::validateModelFiles(const std::string& modelsPath) {
 }
 
 bool WhisperAsrEngine::detectSilence(const int16_t* pcm, size_t samples) {
+    if (samples == 0) return true;
+
+    // === 設計理念：雙重指標靜音檢測 ===
+    // 
+    // 1. RMS (Root Mean Square): 衡量音訊的「響度」。
+    //    單純使用 RMS 容易將持續性的環境噪音（如空調、風扇）誤判為語音，
+    //    或者為了過濾噪音將閾值設太高而漏掉輕聲細語。
+    //
+    // 2. ZCR (Zero Crossing Rate): 衡量訊號的「頻率變化頻繁度」。
+    //    - 語音 (Speech): 通常具有豐富的頻譜變化，ZCR 波動較大且特定頻段集中。
+    //    - 噪音 (Noise): 
+    //      - 低頻噪音 (如空調嗡嗡聲): ZCR 極低。
+    //      - 高頻噪音 (如電流聲): ZCR 極高且穩定。
+    // 
+    // 策略：只有當「能量低」且「訊號變化單調 (低 ZCR)」時，才判定為靜音。
+    // 這允許我們設定較高的 RMS 閾值來過濾噪音，同時利用 ZCR 保護低音量的語音。
+
+    // 1. RMS Energy calculation
     long long sum = 0;
     for (size_t i = 0; i < samples; i++) {
         sum += static_cast<long long>(pcm[i]) * pcm[i];
     }
     double rms = std::sqrt(static_cast<double>(sum) / samples);
-    return rms < 500.0; // Threshold
+
+    // 2. Zero Crossing Rate (ZCR) calculation
+    int zeroCrossings = 0;
+    for (size_t i = 1; i < samples; i++) {
+        // 偵測正負號翻轉
+        if ((pcm[i] >= 0 && pcm[i-1] < 0) || (pcm[i] < 0 && pcm[i-1] >= 0)) {
+            zeroCrossings++;
+        }
+    }
+    double zcr = static_cast<double>(zeroCrossings) / samples;
+
+    // 3. Thresholds (Phase 1A & 1B)
+    // 閾值設定理由：
+    // RMS = 1200: 對應約 -45dBFS (16-bit)，能過濾大多數辦公室背景噪音。
+    // ZCR = 0.05: 即每 100 個採樣點少於 5 次翻轉 (對應 < 800Hz 的單調波形)。
+    const double SILENCE_RMS_THRESHOLD = 1200.0; 
+    const double SILENCE_ZCR_THRESHOLD = 0.05;
+
+    bool isLowEnergy = (rms < SILENCE_RMS_THRESHOLD);
+    bool isLowVariation = (zcr < SILENCE_ZCR_THRESHOLD);
+    
+    bool isSilence = isLowEnergy && isLowVariation;
+
+    // Debug Log (Throttled: Log roughly every 5 seconds)
+    if (impl_->audioBuffer.size() > 0 && impl_->audioBuffer.size() % (16000 * 5) < samples) {
+        LOGD("Silence detection: RMS=%.2f, ZCR=%.4f, isSilence=%d (Energy=%d, Var=%d)", 
+             rms, zcr, isSilence, isLowEnergy, isLowVariation);
+    }
+
+    return isSilence;
+}
+
+// ... (Inference Logic) ...
+
+// === 設計理念：推論前能量分佈預檢 ===
+//
+// 問題：為什麼有了 detectSilence 還需要這個？
+// 答：detectSilence 是針對「短片段 (chunk)」的即時判斷。但即使累積了 3 秒的資料，
+// 可能整段資料都是由「稍微大聲一點的噪音」組成的（剛好超過 RMS 閾值）。
+// Whisper 模型對於這種「非語音的雜訊」極易產生幻覺 (Hallucination)，
+// 會強行將噪音翻譯成 "Thank you" 或 "字幕版權宣告"。
+//
+// 解決方案：窗口化分析 (Windowing Analysis)
+// 將長緩衝區切分為 100ms 的小窗口，統計「靜音窗口」的比例。
+// 如果 90% 以上的時間都是靜音/底噪，代表這段音訊缺乏連續的語音特徵，
+// 應直接在 CPU 層級丟棄，避免浪費 NPU 算力並產生幻覺。
+bool WhisperAsrEngine::shouldSkipInference(const int16_t* pcm, size_t samples) {
+    const size_t WINDOW_SIZE = 1600;  // 100ms @ 16kHz
+    const double ENERGY_THRESHOLD = 1000.0; // 略低於 detectSilence，更嚴格
+    const double SILENCE_RATIO_THRESHOLD = 0.9;  // 必須有 90% 以上區域是安靜的才跳過
+
+    size_t totalWindows = samples / WINDOW_SIZE;
+    if (totalWindows == 0) return false; 
+
+    size_t silentWindows = 0;
+    for (size_t i = 0; i < totalWindows; i++) {
+        const int16_t* window = pcm + (i * WINDOW_SIZE);
+
+        long long sum = 0;
+        for (size_t j = 0; j < WINDOW_SIZE; j++) {
+            sum += static_cast<long long>(window[j]) * window[j];
+        }
+        double rms = std::sqrt(static_cast<double>(sum) / WINDOW_SIZE);
+
+        if (rms < ENERGY_THRESHOLD) {
+            silentWindows++;
+        }
+    }
+
+    double silenceRatio = static_cast<double>(silentWindows) / totalWindows;
+    return silenceRatio >= SILENCE_RATIO_THRESHOLD;
 }
 
 void WhisperAsrEngine::emitTranscript(const std::string& text, long startMs, long endMs) {
