@@ -9,21 +9,10 @@ import org.junit.Test
  * LanguageSetting 單元測試
  *
  * 測試目標：
- * 1. Auto 模式建立
- * 2. Fixed 模式建立與語言代碼驗證
- * 3. sealed class 型別安全
+ * 1. Fixed 模式建立與語言代碼驗證
+ * 2. sealed class 型別安全
  */
 class LanguageSettingTest {
-
-    @Test
-    fun `Auto mode should create successfully`() {
-        // 建立 Auto 模式
-        val setting = LanguageSetting.Auto
-
-        // 驗證型別
-        assertNotNull(setting)
-        assert(setting is LanguageSetting.Auto)
-    }
 
     @Test
     fun `Fixed mode should accept valid language code`() {
@@ -54,15 +43,9 @@ class LanguageSettingTest {
     }
 
     @Test
-    fun `Auto and Fixed should be different types`() {
-        // 建立兩種模式
-        val auto = LanguageSetting.Auto
+    fun `Fixed mode should be a LanguageSetting`() {
         val fixed = LanguageSetting.Fixed("zh")
-
-        // 驗證型別不同
-        assert(auto is LanguageSetting.Auto)
+        assertNotNull(fixed)
         assert(fixed is LanguageSetting.Fixed)
-        assert(auto !is LanguageSetting.Fixed)
-        assert(fixed !is LanguageSetting.Auto)
     }
 }

@@ -35,7 +35,7 @@ class FakeAsrEngineTest {
         val config = EngineConfig(
             asrConfig = AsrConfig.Whisper(
                 modelsPath = "/data/models",
-                language = LanguageSetting.Auto
+                language = LanguageSetting.Fixed("en")
             )
         )
 
@@ -99,7 +99,7 @@ class FakeAsrEngineTest {
         val config = EngineConfig(
             asrConfig = AsrConfig.Whisper(
                 modelsPath = "/data/models",
-                language = LanguageSetting.Auto
+                language = LanguageSetting.Fixed("en")
             )
         )
         fake.init(config)
@@ -121,7 +121,7 @@ class FakeAsrEngineTest {
         val config = EngineConfig(
             asrConfig = AsrConfig.Whisper(
                 modelsPath = "/data/models",
-                language = LanguageSetting.Auto
+                language = LanguageSetting.Fixed("en")
             )
         )
 
@@ -184,7 +184,7 @@ class FakeAsrEngineTest {
         val config = EngineConfig(
             asrConfig = AsrConfig.Whisper(
                 modelsPath = "/data/models",
-                language = LanguageSetting.Auto
+                language = LanguageSetting.Fixed("en")
             )
         )
         fake.init(config)

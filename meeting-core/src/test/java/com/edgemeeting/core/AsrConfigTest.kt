@@ -16,21 +16,6 @@ import org.junit.Test
  */
 class AsrConfigTest {
 
-    @Test
-    fun `Whisper config should create with Auto language`() {
-        // 建立 Whisper 配置，使用自動偵測語言
-        val config = AsrConfig.Whisper(
-            modelsPath = "/data/data/com.edgemeeting/files/models",
-            language = LanguageSetting.Auto
-        )
-
-        // 驗證參數
-        assertEquals("/data/data/com.edgemeeting/files/models", config.modelsPath)
-        assertEquals(LanguageSetting.Auto, config.language)
-        assert(config is AsrConfig.Whisper)
-    }
-
-    @Test
     fun `Whisper config should create with Fixed language`() {
         // 建立 Whisper 配置，指定語言
         val config = AsrConfig.Whisper(
@@ -49,11 +34,11 @@ class AsrConfigTest {
         // 測試不同的模型路徑
         val config1 = AsrConfig.Whisper(
             modelsPath = "/sdcard/models",
-            language = LanguageSetting.Auto
+            language = LanguageSetting.Fixed("en")
         )
         val config2 = AsrConfig.Whisper(
             modelsPath = "/storage/emulated/0/models",
-            language = LanguageSetting.Auto
+            language = LanguageSetting.Fixed("en")
         )
 
         // 驗證路徑不同
@@ -66,7 +51,7 @@ class AsrConfigTest {
         // 建立配置
         val config: AsrConfig = AsrConfig.Whisper(
             modelsPath = "/data/models",
-            language = LanguageSetting.Auto
+            language = LanguageSetting.Fixed("en")
         )
 
         // 驗證型別安全（可用 when 表達式處理）
@@ -83,10 +68,6 @@ class AsrConfigTest {
     @Test
     fun `Whisper config should support all language settings`() {
         // 測試所有語言設定模式
-        val configAuto = AsrConfig.Whisper(
-            modelsPath = "/data/models",
-            language = LanguageSetting.Auto
-        )
         val configZh = AsrConfig.Whisper(
             modelsPath = "/data/models",
             language = LanguageSetting.Fixed("zh")
@@ -97,7 +78,6 @@ class AsrConfigTest {
         )
 
         // 驗證所有配置都有效
-        assertNotNull(configAuto)
         assertNotNull(configZh)
         assertNotNull(configEn)
     }

@@ -78,7 +78,7 @@
 
 > **Why first**: `AsrConfig.Whisper` 需要 `LanguageSetting` 作為參數，必須先定義。
 
-- [X] T003 🔴 RED: 測試 `LanguageSetting`（Auto/Fixed）於 `meeting-core/src/test/java/com/edgemeeting/core/LanguageSettingTest.kt`
+- [X] T003 🔴 RED: 測試 `LanguageSetting`（Fixed）於 `meeting-core/src/test/java/com/edgemeeting/core/LanguageSettingTest.kt`
 - [X] T004 🟢 GREEN: 建立 `LanguageSetting` sealed class 於 `meeting-core/src/main/java/com/edgemeeting/core/model/LanguageSetting.kt`
 - [X] T004a 🔵 REFACTOR: 檢視語言代碼驗證（ISO 639-1 格式）
 

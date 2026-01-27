@@ -3,14 +3,14 @@
 **Feature Branch**: `002-whisper-asr`  
 **Created**: 2026-01-20  
 **Status**: Draft  
-**Input**: User description: "Integrate RK3588 Whisper ASR into Android meeting-engine with segment text output and auto language"
+**Input**: User description: "Integrate RK3588 Whisper ASR into Android meeting-engine with segment text output and fixed language selection"
 
 ## Clarifications
 
 ### Session 2026-01-20
 
 - Q: 逐段分段規則要用哪種？ → A: 靜音 >= 700ms 即切段
-- Q: 指定語言支援範圍？ → A: 支援 Auto + Whisper 所有可用語言
+- Q: 指定語言支援範圍？ → A: 支援 en / zh
 - Q: 轉錄結果的語言標記？ → A: 每段回傳語言代碼
 - Q: 轉錄段落輸出的時間資訊？ → A: 回傳起訖時間（毫秒）
 - Q: 輸出錯誤的回傳方式？ → A: 錯誤碼 + 可讀訊息
@@ -32,17 +32,17 @@
 
 ---
 
-### User Story 2 - 語言自動/指定 (Priority: P2)
+### User Story 2 - 語言指定 (Priority: P2)
 
-使用者可用自動偵測語言，或指定 Whisper 所有可用語言以提升準確度。
+使用者可指定語言（en/zh）以提升準確度。
 
 **Why this priority**: 語言設定會直接影響轉錄品質，是次核心功能。
 
-**Independent Test**: 以相同語音，在自動模式與指定語言模式下比較輸出是否合理。
+**Independent Test**: 以相同語音，在不同指定語言下比較輸出是否合理。
 
 **Acceptance Scenarios**:
 
-1. **Given** 語言模式為自動，**When** 輸入中文語音，**Then** 產生中文逐段轉錄
+1. **Given** 指定語言為中文，**When** 輸入中文語音，**Then** 產生中文逐段轉錄
 2. **Given** 指定語言為英文，**When** 輸入英文語音，**Then** 產生英文逐段轉錄
 
 ---
@@ -74,7 +74,7 @@
 
 - **FR-001**: 系統必須能在會議開始前載入裝置端語音轉錄模型
 - **FR-002**: 系統必須能接收即時音訊並產生逐段文字輸出
-- **FR-003**: 系統必須支援語言自動偵測與指定 Whisper 所有可用語言
+- **FR-003**: 系統必須支援指定語言（en/zh）
 - **FR-004**: 系統必須在模型或資源不可用時回傳可理解的錯誤訊息
 - **FR-005**: 使用者必須能在會議開始與結束時啟用或停止轉錄
 - **FR-006**: 轉錄流程必須在裝置離線狀態下可運作
@@ -90,7 +90,7 @@
 ### Key Entities *(include if feature involves data)*
 
 - **TranscriptSegment**: 文字段落、起訖時間（毫秒）、語言代碼
-- **LanguageSetting**: 自動或指定語言的設定值
+- **LanguageSetting**: 指定語言的設定值
 - **TranscriptionSession**: 會議轉錄的狀態與時間範圍
 
 ### Assumptions & Dependencies

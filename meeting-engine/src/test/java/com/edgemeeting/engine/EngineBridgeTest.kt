@@ -50,7 +50,7 @@ class EngineBridgeTest {
         // 建立 Whisper ASR 配置
         val asrConfig = AsrConfig.Whisper(
             modelsPath = "/data/models",
-            language = LanguageSetting.Auto
+            language = LanguageSetting.Fixed("en")
         )
         val config = EngineConfig(asrConfig = asrConfig)
 
@@ -110,10 +110,10 @@ class EngineBridgeTest {
     fun `EngineBridge should support different AsrConfig types`() {
         // 建立多種配置
         val configAudioOnly = EngineConfig(asrConfig = null)
-        val configWhisperAuto = EngineConfig(
+        val configWhisperEn = EngineConfig(
             asrConfig = AsrConfig.Whisper(
                 modelsPath = "/data/models",
-                language = LanguageSetting.Auto
+                language = LanguageSetting.Fixed("en")
             )
         )
         val configWhisperFixed = EngineConfig(
@@ -137,7 +137,7 @@ class EngineBridgeTest {
 
         // 驗證：所有配置都能成功初始化
         assert(bridge.init(configAudioOnly) is BridgeResult.Success)
-        assert(bridge.init(configWhisperAuto) is BridgeResult.Success)
+        assert(bridge.init(configWhisperEn) is BridgeResult.Success)
         assert(bridge.init(configWhisperFixed) is BridgeResult.Success)
     }
 }

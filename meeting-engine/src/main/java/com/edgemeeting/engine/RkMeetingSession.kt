@@ -40,10 +40,10 @@ class RkMeetingSession(
     /**
      * 語言設定 (Phase 4 新增)
      *
-     * 預設為 Auto (自動偵測)。
-     * 可傳入 LanguageSetting.Fixed("zh") 指定語言。
+     * RKNN Whisper 預設為 English。
+     * 可傳入 LanguageSetting.Fixed("zh") 指定中文。
      */
-    private val languageSetting: LanguageSetting = LanguageSetting.Auto,
+    private val languageSetting: LanguageSetting = LanguageSetting.Fixed("en"),
     /**
      * 模型準備函數
      *
@@ -111,7 +111,9 @@ class RkMeetingSession(
             }
 
             override fun onError(code: Int, message: String) {
-                // TODO: Phase 3 將實作錯誤處理
+                // 發生 native error 時，立即停止錄音並更新狀態
+                bridge.stopRecording()
+                _state.value = MeetingState.Error(code, message)
                 android.util.Log.e("JNI_CALLBACK", "Error $code: $message")
             }
         })

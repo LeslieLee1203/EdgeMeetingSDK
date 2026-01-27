@@ -23,7 +23,7 @@ import com.edgemeeting.core.model.AsrConfig
  * // 錄音 + Whisper ASR
  * val asrConfig = AsrConfig.Whisper(
  *     modelsPath = "/data/data/com.edgemeeting/files/models",
- *     language = LanguageSetting.Auto
+ *     language = LanguageSetting.Fixed("en")
  * )
  * val fullConfig = EngineConfig(asrConfig = asrConfig)
  * ```

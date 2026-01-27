@@ -39,7 +39,7 @@ class JniEngineBridgeTest {
         // val config = EngineConfig(
         //     asrConfig = AsrConfig.Whisper(
         //         modelsPath = "/data/local/tmp/models",
-        //         language = LanguageSetting.Auto
+        //         language = LanguageSetting.Fixed("en")
         //     )
         // )
         //
@@ -57,7 +57,7 @@ class JniEngineBridgeTest {
         // val config = EngineConfig(
         //     asrConfig = AsrConfig.Whisper(
         //         modelsPath = "/invalid/path",
-        //         language = LanguageSetting.Auto
+        //         language = LanguageSetting.Fixed("en")
         //     )
         // )
         //
@@ -151,27 +151,4 @@ class JniEngineBridgeTest {
         assertEquals(LanguageSetting.Fixed("zh"), whisperConfig.language)
     }
 
-    // 測試 7：LanguageSetting.Auto 轉換為 "auto" 字串
-    @Test
-    fun `LanguageSetting Auto should convert to auto string`() {
-        // 為什麼測試：驗證 LanguageSetting 轉換邏輯
-        // C++ 層需要接收字串 "auto"，不是 Kotlin sealed class
-
-        val languageAuto = LanguageSetting.Auto
-        val languageFixed = LanguageSetting.Fixed("zh")
-
-        // 轉換邏輯（將在 JniEngineBridge.init 中實作）
-        val autoString = when (languageAuto) {
-            is LanguageSetting.Auto -> "auto"
-            is LanguageSetting.Fixed -> languageAuto.languageCode
-        }
-
-        val fixedString = when (languageFixed) {
-            is LanguageSetting.Auto -> "auto"
-            is LanguageSetting.Fixed -> languageFixed.languageCode
-        }
-
-        assertEquals("auto", autoString)
-        assertEquals("zh", fixedString)
-    }
 }

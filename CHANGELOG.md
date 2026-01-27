@@ -1,5 +1,44 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-01-27] - 修正單元測試回調命名衝突
+
+### 修正
+- `meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTest.kt` 避免 setCallback 名稱衝突
+
+---
+
+## [2026-01-27] - 移除 Auto 語言與 UI 文字英文化
+
+### 調整
+- 移除 `LanguageSetting.Auto` 與相關測試/文件描述
+- `app/src/main/java/com/edgemeeting/sdk/MainActivity.kt` 顯示文字全面改為英文
+- 更新規格與研究文件以反映僅支援 en/zh
+
+---
+
+## [2026-01-27] - RKNN Whisper 預設語言改為英文
+
+### 調整
+- `meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt` 預設語言改為 `LanguageSetting.Fixed("en")`
+- `app/src/main/java/com/edgemeeting/sdk/MainActivity.kt` 語言選項移除 auto，預設為英文
+- 更新 `CLAUDE.md`、`README.md`、`specs/002-whisper-asr/data-model.md` 說明
+
+### 測試
+- `app/src/test/java/com/edgemeeting/sdk/LanguageOptionsTest.kt` 更新期望語言清單
+
+---
+
+## [2026-01-27] - 修正 native error 狀態與測試一致性
+
+### 修正
+- `meeting-engine/src/main/java/com/edgemeeting/engine/RkMeetingSession.kt` native error 時停止錄音並更新 Error 狀態
+- `meeting-engine/src/main/cpp/native-lib.cpp` 無 ASR 時不建立清理順序，避免測試不一致
+
+### 測試
+- `meeting-engine/src/test/java/com/edgemeeting/engine/RkMeetingSessionTest.kt` 新增 onError 狀態與 stopRecording 測試
+
+---
+
 ## [2026-01-27] - 語言選項與 Native 支援對齊
 
 ### 修正

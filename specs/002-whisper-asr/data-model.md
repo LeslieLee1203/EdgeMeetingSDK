@@ -46,14 +46,9 @@ ASR 引擎配置，採用 sealed class 確保型別安全與可擴充性。
 
 ```kotlin
 sealed class LanguageSetting {
-    data object Auto : LanguageSetting()
     data class Fixed(val languageCode: String) : LanguageSetting()
 }
 ```
-
-### LanguageSetting.Auto
-
-自動偵測語言，無額外參數。
 
 ### LanguageSetting.Fixed
 

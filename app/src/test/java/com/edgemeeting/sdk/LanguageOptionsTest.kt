@@ -12,9 +12,8 @@ class LanguageOptionsTest {
         val settings = options.map { it.first }
 
         val expected = listOf(
-            LanguageSetting.Auto,
-            LanguageSetting.Fixed("zh"),
-            LanguageSetting.Fixed("en")
+            LanguageSetting.Fixed("en"),
+            LanguageSetting.Fixed("zh")
         )
 
         assertEquals(expected, settings)

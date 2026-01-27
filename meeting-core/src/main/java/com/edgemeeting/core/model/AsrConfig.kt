@@ -16,12 +16,6 @@ package com.edgemeeting.core.model
  *
  * 使用範例：
  * ```kotlin
- * // Whisper 自動偵測語言
- * val whisperAuto = AsrConfig.Whisper(
- *     modelsPath = "/data/data/com.edgemeeting/files/models",
- *     language = LanguageSetting.Auto
- * )
- *
  * // Whisper 指定中文
  * val whisperZh = AsrConfig.Whisper(
  *     modelsPath = "/data/data/com.edgemeeting/files/models",
@@ -34,10 +28,10 @@ sealed class AsrConfig {
      * Whisper ASR 配置
      *
      * 使用 RKNN 加速的 Whisper 模型進行語音辨識。
-     * 支援多語言自動偵測或指定語言模式。
+ * 支援指定語言模式。
      *
      * @property modelsPath 模型檔案資料夾的絕對路徑（必須包含 encoder 與 decoder RKNN 模型）
-     * @property language 語言設定（Auto 或 Fixed）
+ * @property language 語言設定（Fixed）
      */
     data class Whisper(
         val modelsPath: String,

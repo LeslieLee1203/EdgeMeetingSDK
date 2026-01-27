@@ -93,7 +93,7 @@ class TranscriptSegmentTest {
         // 測試：未指定語言代碼（預設 null）
         val segment = TranscriptSegment(
             id = "test-5",
-            text = "自動偵測",
+            text = "Language detected",
             speakerId = "Speaker_B",
             isFinal = false,
             startTimeMs = 500,

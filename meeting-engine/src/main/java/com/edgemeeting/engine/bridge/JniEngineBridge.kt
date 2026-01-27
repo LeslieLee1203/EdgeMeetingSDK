@@ -24,7 +24,6 @@ class JniEngineBridge: EngineBridge {
                 // 將 language 賦值給 local variable 以支援 smart cast
                 val languageSetting = asrConfig.language
                 val lang = when (languageSetting) {
-                    is LanguageSetting.Auto -> "auto"
                     is LanguageSetting.Fixed -> languageSetting.languageCode
                 }
                 Pair(path, lang)
@@ -77,7 +76,7 @@ class JniEngineBridge: EngineBridge {
      * 初始化 native 引擎
      *
      * @param modelsPath 模型檔資料夾路徑（空字串表示純錄音模式）
-     * @param language 語言代碼（"auto" 或指定語言如 "zh", "en"）
+     * @param language 語言代碼（如 "zh", "en"）
      * @return 0 成功，非 0 錯誤碼
      */
     private external fun nativeInit(modelsPath: String, language: String): Int

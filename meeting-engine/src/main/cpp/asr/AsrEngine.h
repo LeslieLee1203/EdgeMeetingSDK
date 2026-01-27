@@ -49,7 +49,7 @@ public:
      * - RKNN rknn_init 需要檔案絕對路徑
      *
      * 為什麼需要 language：
-     * - Whisper 支援 auto（自動偵測）與指定語言（提升準確度）
+     * - RKNN Whisper 需指定語言（提升準確度）
      * - 未來 Zipformer 可能需要切換不同語言模型
      */
     virtual bool init(const std::string& modelsPath, const std::string& language) = 0;

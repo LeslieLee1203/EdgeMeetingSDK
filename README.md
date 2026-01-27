@@ -6,7 +6,7 @@
 
 - **Real-time ASR**: On-device speech-to-text using OpenAI Whisper (Base model) accelerated by RKNN.
 - **Privacy First**: All processing happens locally on the RK3588 device; no audio is sent to the cloud.
-- **Language Support**: Supports English (`en`) and Chinese (`zh`) with auto-detection or manual selection.
+- **Language Support**: Supports English (`en`) and Chinese (`zh`) with manual selection.
 - **High Performance**: Optimized using C++ JNI, Oboe for low-latency audio, and Rockchip NPU for inference.
 - **Easy Integration**: Simple Kotlin API with Coroutines/Flow support.
 
@@ -28,9 +28,9 @@ Add the `meeting-engine` and `meeting-core` modules to your Android project.
 // 1. Initialize Bridge & Session
 val session = RkMeetingSession(
     bridge = JniEngineBridge(),
-    // Auto-copy models from assets to app-private storage
+    // Copy models from assets to app-private storage
     modelProvider = { ModelAssetManager.ensureModels(context) },
-    // Optional: Set specific language (default is Auto)
+    // Optional: Set specific language (default is English)
     languageSetting = LanguageSetting.Fixed("zh")
 )
 
@@ -80,7 +80,7 @@ bridge.setCallback(object : EngineCallback {
 val config = EngineConfig(
     asrConfig = AsrConfig.Whisper(
         modelsPath = "/data/data/com.edgemeeting.sdk/files/models",
-        language = LanguageSetting.Auto
+        language = LanguageSetting.Fixed("en")
     )
 )
 

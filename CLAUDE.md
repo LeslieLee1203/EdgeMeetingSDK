@@ -194,8 +194,8 @@ RkMeetingSession.transcriptFlow → UI
 - Required files: `whisper_encoder_base_20s.rknn`, `whisper_decoder_base_20s.rknn`, `vocab_en.txt`, `vocab_zh.txt`, `mel_80_filters.txt`
 
 **Language Support**:
-- `LanguageSetting.Auto` - Whisper auto-detects language from audio
-- `LanguageSetting.Fixed("zh")` - Forces specific language for better accuracy
+- `LanguageSetting.Fixed("en")` - 預設英文
+- `LanguageSetting.Fixed("zh")` - 指定中文以提升準確度
 - Passed through: `AsrConfig.Whisper` → `EngineConfig` → JNI → `WhisperAsrEngine.init()`
 
 **Audio Preprocessing** (`WhisperUtils.cpp`):
@@ -299,7 +299,6 @@ Located in `meeting-engine/src/main/cpp/`:
   - Future: `Zipformer(...)`, `RemoteApi(...)`, etc.
 
 - `LanguageSetting` (`meeting-core/LanguageSetting.kt`) - Sealed class
-  - `Auto` - Whisper auto-detects language from audio
   - `Fixed(languageCode: String)` - Force specific language (e.g., "zh", "en")
 
 - `BridgeResult` (`meeting-engine/bridge/BridgeResult.kt`) - Sealed class
@@ -528,7 +527,7 @@ enable_testing()
 ```
 UI Layer (MainActivity)
     ↓
-val languageSetting = LanguageSetting.Fixed("zh")  // or LanguageSetting.Auto
+val languageSetting = LanguageSetting.Fixed("en")  // or LanguageSetting.Fixed("zh")
     ↓
 RkMeetingSession(bridge, modelProvider, languageSetting)
     ↓
@@ -537,13 +536,13 @@ AsrConfig.Whisper(modelsPath, language = languageSetting)
 EngineConfig(asrConfig)
     ↓
 JniEngineBridge.init(config)
-    ├─ Extract language string: "auto" or "zh" or "en"
+    ├─ Extract language string: "zh" or "en"
     └─ nativeInit(modelsPath, languageString)  [JNI call]
         ↓
 WhisperAsrEngine::init(modelsPath, language) [C++]
     ├─ if (language == "zh") → task_code = 50260, load vocab_zh.txt
     ├─ else if (language == "en") → task_code = 50259, load vocab_en.txt
-    └─ else (auto) → task_code determined at runtime from Whisper output
+    └─ RKNN Whisper 不支援 auto
         ↓
 WhisperAsrEngine::runInference()
     └─ Decoder uses task_code as initial prompt token

@@ -32,7 +32,7 @@ class EngineConfigTest {
         // 建立 Whisper ASR 配置
         val asrConfig = AsrConfig.Whisper(
             modelsPath = "/data/models",
-            language = LanguageSetting.Auto
+            language = LanguageSetting.Fixed("en")
         )
         val config = EngineConfig(asrConfig = asrConfig)
 
@@ -75,7 +75,7 @@ class EngineConfigTest {
         // 複製並修改 ASR 配置
         val newAsrConfig = AsrConfig.Whisper(
             modelsPath = "/data/models",
-            language = LanguageSetting.Auto
+            language = LanguageSetting.Fixed("en")
         )
         val newConfig = originalConfig.copy(asrConfig = newAsrConfig)
 

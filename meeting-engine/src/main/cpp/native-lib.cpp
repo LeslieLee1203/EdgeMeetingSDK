@@ -41,6 +41,7 @@ std::vector<std::string> buildAsrResetOrderLabels(
     bool hasProcessor
 ) {
     std::vector<std::string> order;
+    if (!hasAsr) return order;
     if (hasProcessor) order.emplace_back("clear_processor_asr");
     if (hasAsr) order.emplace_back("release_asr");
     return order;

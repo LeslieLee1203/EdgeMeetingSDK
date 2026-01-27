@@ -6,9 +6,9 @@
 - Alternatives considered: 固定時間切段、僅 stop 輸出
 
 ## 語言支援範圍
-- Decision: Auto + Whisper 所有可用語言
-- Rationale: 需求明確，避免後續擴充影響 API
-- Alternatives considered: 僅中/英、僅 auto
+- Decision: 僅支援 en / zh
+- Rationale: RKNN Whisper 不支援 auto，先對齊實作
+- Alternatives considered: 支援 auto、支援更多語言
 
 ## 語言標記回傳
 - Decision: 每段回傳語言代碼

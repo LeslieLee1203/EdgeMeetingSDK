@@ -25,7 +25,6 @@ protected:
     const std::string invalidModelsPath = "/invalid/path";
 
     // 測試用的語言代碼
-    const std::string languageAuto = "auto";
     const std::string languageZh = "zh";
     const std::string languageEn = "en";
 
@@ -40,15 +39,15 @@ protected:
     }
 };
 
-// 測試 1：init 成功載入模型（使用 auto 語言偵測）
-TEST_F(WhisperAsrEngineTest, InitWithAutoLanguage) {
+// 測試 1：init 成功載入模型（使用英文）
+TEST_F(WhisperAsrEngineTest, InitWithEnglishLanguage) {
     // 為什麼測試：驗證 RKNN 模型可以成功載入
     // 注意：此測試需要真實模型檔，在 CI 環境可能跳過
 
     // WhisperAsrEngine engine;
-    // bool result = engine.init(validModelsPath, languageAuto);
+    // bool result = engine.init(validModelsPath, languageEn);
 
-    // EXPECT_TRUE(result) << "Failed to initialize with auto language";
+    // EXPECT_TRUE(result) << "Failed to initialize with English language";
 
     // 清理
     // engine.release();
@@ -71,7 +70,7 @@ TEST_F(WhisperAsrEngineTest, InitWithInvalidPath) {
     // 為什麼測試：驗證錯誤處理（模型檔案不存在）
 
     // WhisperAsrEngine engine;
-    // bool result = engine.init(invalidModelsPath, languageAuto);
+    // bool result = engine.init(invalidModelsPath, languageEn);
 
     // EXPECT_FALSE(result) << "Should fail with invalid models path";
 }
@@ -81,7 +80,7 @@ TEST_F(WhisperAsrEngineTest, InitWithEmptyPath) {
     // 為什麼測試：驗證參數驗證
 
     // WhisperAsrEngine engine;
-    // bool result = engine.init("", languageAuto);
+    // bool result = engine.init("", languageEn);
 
     // EXPECT_FALSE(result) << "Should fail with empty path";
 }
@@ -103,7 +102,7 @@ TEST_F(WhisperAsrEngineTest, LifecycleOrder) {
     // WhisperAsrEngine engine;
 
     // // 初始化
-    // ASSERT_TRUE(engine.init(validModelsPath, languageAuto));
+    // ASSERT_TRUE(engine.init(validModelsPath, languageEn));
 
     // // 開始
     // engine.start();
@@ -124,7 +123,7 @@ TEST_F(WhisperAsrEngineTest, MultipleRelease) {
     // 為什麼測試：防止 double-free 導致 crash
 
     // WhisperAsrEngine engine;
-    // engine.init(validModelsPath, languageAuto);
+    // engine.init(validModelsPath, languageEn);
 
     // engine.release();
 
@@ -149,7 +148,7 @@ TEST_F(WhisperAsrEngineTest, DestructorCleansUp) {
 
     // {
     //     WhisperAsrEngine engine;
-    //     engine.init(validModelsPath, languageAuto);
+    //     engine.init(validModelsPath, languageEn);
     //
     //     // 離開 scope 時，析構函式應自動釋放資源
     // }
@@ -163,7 +162,7 @@ TEST_F(WhisperAsrEngineTest, MultipleStartStop) {
     // 為什麼測試：驗證可以重複開始/停止（如會議暫停後恢復）
 
     // WhisperAsrEngine engine;
-    // engine.init(validModelsPath, languageAuto);
+    // engine.init(validModelsPath, languageEn);
 
     // // 第一次 start/stop
     // engine.start();

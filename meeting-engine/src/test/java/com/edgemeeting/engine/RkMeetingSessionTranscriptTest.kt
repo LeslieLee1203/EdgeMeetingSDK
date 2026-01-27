@@ -424,7 +424,7 @@ class RkMeetingSessionTranscriptTest {
      * 為什麼需要測試：驗證語言偵測結果正確回傳給 Kotlin 層
      * 預期行為：
      * 1. 使用 LanguageSetting.Fixed("zh") 時，回傳的 segment 應包含 languageCode = "zh"
-     * 2. 使用 LanguageSetting.Auto 時，回傳的 segment 可能包含偵測到的語言代碼
+     * 2. 使用 LanguageSetting.Fixed("en") 時，回傳的 segment 應包含 languageCode = "en"
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test

@@ -25,6 +25,8 @@ class RkMeetingSessionTest {
         var nextInitResult: BridgeResult = BridgeResult.Success // 設定預設行為
         var isInitCalled = false
         var lastConfig: EngineConfig? = null // 記錄傳入的配置
+        var capturedCallback: EngineCallback? = null
+        var stopRecordingCallCount = 0
 
         override fun init(config: EngineConfig): BridgeResult {
             isInitCalled = true
@@ -33,9 +35,13 @@ class RkMeetingSessionTest {
         }
 
         // 其他方法暫時不重要，留空即可
-        override fun setCallback(callback: EngineCallback) = Unit
+        override fun setCallback(callback: EngineCallback) {
+            this.capturedCallback = callback
+        }
         override fun startRecording() {}
-        override fun stopRecording() {}
+        override fun stopRecording() {
+            stopRecordingCallCount += 1
+        }
         override fun release() {}
     }
 
@@ -204,6 +210,22 @@ class RkMeetingSessionTest {
             null,
             config!!.asrConfig
         )
+    }
+
+    @Test
+    fun `onError should move to Error and stop recording`() = runTest {
+        val fakeBridge = FakeEngineBridge()
+        val session = RkMeetingSession(bridge = fakeBridge)
+
+        val callback = fakeBridge.capturedCallback
+        assertNotNull("callback 應該被註冊", callback)
+
+        callback!!.onError(9999, "Native error")
+
+        val currentState = session.state.value
+        assertTrue("狀態應為 Error", currentState is MeetingState.Error)
+        assertEquals("錯誤碼應透傳", 9999, (currentState as MeetingState.Error).code)
+        assertEquals("應停止錄音一次", 1, fakeBridge.stopRecordingCallCount)
     }
 
     // ===== T047: start()/stop() 啟停 ASR 測試 =====

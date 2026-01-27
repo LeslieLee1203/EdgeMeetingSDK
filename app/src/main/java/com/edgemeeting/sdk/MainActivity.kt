@@ -85,8 +85,8 @@ fun MeetingScreen(
     createSession: (LanguageSetting) -> MeetingSession,
     modifier: Modifier = Modifier
 ) {
-    // Phase 4: 語言設定狀態（預設 Auto）
-    var selectedLanguage by remember { mutableStateOf<LanguageSetting>(LanguageSetting.Auto) }
+    // Phase 4: 語言設定狀態（預設 English）
+    var selectedLanguage by remember { mutableStateOf<LanguageSetting>(LanguageSetting.Fixed("en")) }
     var session by remember { mutableStateOf<MeetingSession?>(null) }
 
     // 當語言設定改變時，重新建立 session
@@ -167,7 +167,7 @@ fun MeetingScreen(
         val recentSegments = transcriptItems.takeLast(5)
         if (recentSegments.isNotEmpty()) {
             Text(
-                text = "Transcripts:",
+                text = "Transcripts",
                 style = MaterialTheme.typography.titleMedium
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -242,15 +242,15 @@ fun MeetingScreen(
 @Composable
 fun StateIndicator(state: MeetingState) {
     val (color, text) = when (state) {
-        is MeetingState.Idle -> Color.Gray to "Idle (未初始化)"
-        is MeetingState.Preparing -> Color.Blue to "Preparing (載入中...)"
-        is MeetingState.Ready -> Color(0xFF4CAF50) to "Ready (就緒)" // Green
-        is MeetingState.Listening -> Color.Red to "Listening (錄音中)"
+        is MeetingState.Idle -> Color.Gray to "Idle"
+        is MeetingState.Preparing -> Color.Blue to "Preparing"
+        is MeetingState.Ready -> Color(0xFF4CAF50) to "Ready" // Green
+        is MeetingState.Listening -> Color.Red to "Listening"
         is MeetingState.Error -> Color.Red to "Error: ${state.message}"
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = "Current State:", style = MaterialTheme.typography.labelLarge)
+        Text(text = "Current State", style = MaterialTheme.typography.labelLarge)
         Text(
             text = text,
             style = MaterialTheme.typography.titleLarge,
@@ -263,9 +263,9 @@ fun StateIndicator(state: MeetingState) {
 /**
  * 語言選擇器 (Phase 4)
  *
- * 為什麼需要：允許使用者選擇 Auto（自動偵測）或指定語言（如中文、英文）
+ * 為什麼需要：允許使用者選擇指定語言（如英文、中文）
  * 設計考量：
- * - 預設為 Auto，符合多數使用情境
+ * - 預設為 English
  * - 只在 Idle 或 Error 狀態可切換（避免執行中切換導致狀態不一致）
  * - 使用 DropdownMenu 提供清晰的選項
  */
@@ -279,17 +279,17 @@ fun LanguageSelector(
     var expanded by remember { mutableStateOf(false) }
 
     val languageOptions = supportedLanguageOptions().ifEmpty {
-        listOf(LanguageSetting.Auto to "Auto (自動偵測)")
+        listOf(LanguageSetting.Fixed("en") to "English")
     }
 
-    val currentLabel = languageOptions.find { it.first == selectedLanguage }?.second ?: "Auto (自動偵測)"
+    val currentLabel = languageOptions.find { it.first == selectedLanguage }?.second ?: "English"
 
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "語言設定 (Language):",
+            text = "Language:",
             style = MaterialTheme.typography.labelLarge
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -322,12 +322,11 @@ fun LanguageSelector(
 /**
  * 目前 Native 層支援的語言選項
  *
- * 注意：C++ Whisper 實作僅支援 auto/zh/en
+ * 注意：RKNN Whisper 不支援 auto，僅支援 en/zh
  */
 fun supportedLanguageOptions(): List<Pair<LanguageSetting, String>> {
     return listOf(
-        LanguageSetting.Auto to "Auto (自動偵測)",
-        LanguageSetting.Fixed("zh") to "中文 (Chinese)",
-        LanguageSetting.Fixed("en") to "English (英文)"
+        LanguageSetting.Fixed("en") to "English",
+        LanguageSetting.Fixed("zh") to "Chinese"
     )
 }
