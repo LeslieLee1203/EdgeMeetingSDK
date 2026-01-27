@@ -109,6 +109,7 @@ struct WhisperAsrEngine::Impl {
     std::mutex audioMutex;  // 保護 audioBuffer（快速操作）
     std::vector<int16_t> audioBuffer;
     int silenceDurationMs = 0;
+    int speechDurationMs = 0;  // 新增：追蹤語音時長，用於過濾無效推論
     int segmentCounter = 0;
     long totalAudioMs = 0;  // 累積的音訊總時間（毫秒）
     TranscriptCallback transcriptCallback;
@@ -218,6 +219,7 @@ void WhisperAsrEngine::start() {
     // 簡化版：只重置必要狀態
     impl_->audioBuffer.clear();
     impl_->silenceDurationMs = 0;
+    impl_->speechDurationMs = 0;
     impl_->segmentCounter = 0;
     impl_->totalAudioMs = 0;
 
@@ -258,6 +260,7 @@ void WhisperAsrEngine::stop() {
     }
 
     impl_->silenceDurationMs = 0;
+    impl_->speechDurationMs = 0;
     LOGD("WhisperAsrEngine stopped");
 }
 
@@ -357,52 +360,94 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
 
         VadState vadState = detectVadState(pcm, samples);
 
-        // 更新靜音累積時間
-        if (vadState == VadState::SILENCE) {
+        // 更新靜音累積時間（修正：PAUSE 也算非語音時長）
+        int prevSilenceDurationMs = impl_->silenceDurationMs;
+
+        if (vadState == VadState::SILENCE || vadState == VadState::PAUSE) {
             impl_->silenceDurationMs += (samples * 1000) / 16000;
+
+            // 每累積 500ms 輸出一次日誌（方便追蹤累積過程）
+            if (impl_->silenceDurationMs >= 500 &&
+                prevSilenceDurationMs < 500) {
+                LOGI("Non-speech accumulated: %dms (VAD=%s, Buffer=%.1fs)",
+                     impl_->silenceDurationMs,
+                     (vadState == VadState::SILENCE) ? "SILENCE" : "PAUSE",
+                     impl_->audioBuffer.size() / 16000.0);
+            }
         } else {
+            // State is SPEECH
+            if (prevSilenceDurationMs > 0) {
+                LOGD("Non-speech duration reset: %dms -> 0 (VAD changed to SPEECH)",
+                     prevSilenceDurationMs);
+            }
             impl_->silenceDurationMs = 0;
+            
+            // 累積語音時長
+            impl_->speechDurationMs += (samples * 1000) / 16000;
         }
 
         // Debug log（節流：每 5 秒）
         if (impl_->audioBuffer.size() % (16000 * 5) < samples) {
-            LOGD("pushAudio: Buffer=%.1fs, VAD=%d, Silence=%dms",
+            LOGD("pushAudio: Buffer=%.1fs, VAD=%d, Silence=%dms, Speech=%dms",
                  impl_->audioBuffer.size() / 16000.0,
                  static_cast<int>(vadState),
-                 impl_->silenceDurationMs);
+                 impl_->silenceDurationMs,
+                 impl_->speechDurationMs);
         }
 
         // === 推論觸發判斷 ===
         const size_t MIN_SAMPLES = 16000 * 2;
         const size_t MAX_SAMPLES = 16000 * 20;
         const int SILENCE_THRESHOLD_MS = 500;
+        const int MIN_SPEECH_DURATION_MS = 500; // 最小有效語音長度
 
         bool shouldInfer = false;
+        const char* triggerReason = nullptr;
 
-        // 策略 1：最小時長 + 靜音檢測
+        // 策略 1：最小時長 + 非語音檢測
         if (impl_->audioBuffer.size() >= MIN_SAMPLES &&
-            vadState == VadState::SILENCE &&
+            (vadState == VadState::SILENCE || vadState == VadState::PAUSE) &&
             impl_->silenceDurationMs >= SILENCE_THRESHOLD_MS) {
             shouldInfer = true;
-            LOGD("Inference triggered: Silence detected (%.1fs audio, %dms silence)",
-                 impl_->audioBuffer.size() / 16000.0, impl_->silenceDurationMs);
+            triggerReason = (vadState == VadState::SILENCE) ? "SILENCE detected" : "PAUSE detected";
         }
 
         // 策略 2：強制截斷
         if (!shouldInfer && impl_->audioBuffer.size() >= MAX_SAMPLES) {
             shouldInfer = true;
-            LOGD("Inference triggered: Max buffer reached (%.1fs)",
-                 impl_->audioBuffer.size() / 16000.0);
+            triggerReason = "Max buffer reached";
         }
 
         if (shouldInfer && !impl_->isInferring.load(std::memory_order_acquire)) {
-            // 能量過濾
+            // 關鍵修正：檢查是否有足夠的語音內容 (防止幻覺)
+            // 如果語音時長不足 0.5s，直接丟棄 Buffer
+            if (impl_->speechDurationMs < MIN_SPEECH_DURATION_MS) {
+                 LOGW("Inference SKIPPED: Insufficient speech duration (%dms < %dms). Reason: %s", 
+                      impl_->speechDurationMs, MIN_SPEECH_DURATION_MS, triggerReason);
+                 impl_->audioBuffer.clear();
+                 impl_->silenceDurationMs = 0;
+                 impl_->speechDurationMs = 0;
+                 return;
+            }
+
+            // 能量預檢（保留作為雙重保險）
             if (shouldSkipInference(impl_->audioBuffer.data(), impl_->audioBuffer.size())) {
-                LOGD("Skipping inference: Audio energy too low");
+                LOGW("Inference SKIPPED: %s, but energy too low (Buffer=%.1fs, NonSpeech=%dms)",
+                     triggerReason,
+                     impl_->audioBuffer.size() / 16000.0,
+                     impl_->silenceDurationMs);
                 impl_->audioBuffer.clear();
                 impl_->silenceDurationMs = 0;
+                impl_->speechDurationMs = 0;
                 return;
             }
+
+            // 觸發推論（詳細日誌）
+            LOGI("Inference TRIGGERED: %s (Buffer=%.1fs, Speech=%dms, NonSpeech=%dms)",
+                 triggerReason,
+                 impl_->audioBuffer.size() / 16000.0,
+                 impl_->speechDurationMs,
+                 impl_->silenceDurationMs);
 
             // 準備推論請求
             Impl::InferenceRequest req;
@@ -414,6 +459,7 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
             // 立即清空當前 buffer
             impl_->audioBuffer.clear();
             impl_->silenceDurationMs = 0;
+            impl_->speechDurationMs = 0;
 
             // 推送到推論隊列（快速操作）
             {
@@ -569,19 +615,42 @@ static int inference_decoder(RknnModelContext *ctx, float *encoder_output, Vocab
 
 std::string WhisperAsrEngine::runInference(const int16_t* pcmData, size_t samples) {
     if (!initialized_) return "";
-    
+
+    auto t0 = std::chrono::steady_clock::now();
     LOGD("runInference: Processing %zu samples", samples);
-    
+
+    // === 階段 1：音頻預處理 ===
+    auto t1_start = std::chrono::steady_clock::now();
+
     // 1. Convert PCM to Float & Preprocess
     std::vector<float> audio_float(samples);
+    float max_val = 0.0f;
+    
+    // Apply digital gain to normalize audio levels (Whisper expects ~ -3dBFS, input is ~ -40dBFS)
+    const float GAIN_FACTOR = 10.0f; 
+
     for(size_t i=0; i<samples; i++) {
-        audio_float[i] = pcmData[i] / 32768.0f;
+        float val = (pcmData[i] / 32768.0f) * GAIN_FACTOR;
+        // Hard clamp to prevent clipping artifacts
+        if (val > 1.0f) val = 1.0f;
+        if (val < -1.0f) val = -1.0f;
+        audio_float[i] = val;
+        
+        if (std::abs(val) > max_val) max_val = std::abs(val);
     }
+    
+    LOGD("runInference: Applied gain %.1fx. Max amplitude after gain: %.4f", GAIN_FACTOR, max_val);
 
     std::vector<float> x_mel;
-    
+
     audio_preprocess(audio_float.data(), samples, impl_->mel_filters, x_mel);
-    LOGD("runInference: Preprocessing done. Mel size: %zu", x_mel.size());
+
+    auto t1_end = std::chrono::steady_clock::now();
+    auto preprocess_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1_end - t1_start).count();
+    LOGD("runInference: Preprocessing done (%lld ms). Mel size: %zu", preprocess_ms, x_mel.size());
+
+    // === 階段 2：RKNN Encoder ===
+    auto t2_start = std::chrono::steady_clock::now();
 
     // 2. Encoder
     float *encoder_output = (float *)malloc(ENCODER_OUTPUT_SIZE * sizeof(float));
@@ -590,7 +659,13 @@ std::string WhisperAsrEngine::runInference(const int16_t* pcmData, size_t sample
         free(encoder_output);
         return "";
     }
-    LOGD("runInference: Encoder done");
+
+    auto t2_end = std::chrono::steady_clock::now();
+    auto encoder_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2_end - t2_start).count();
+    LOGD("runInference: Encoder done (%lld ms)", encoder_ms);
+
+    // === 階段 3：RKNN Decoder ===
+    auto t3_start = std::chrono::steady_clock::now();
 
     // 3. Decoder
     std::string text;
@@ -599,8 +674,22 @@ std::string WhisperAsrEngine::runInference(const int16_t* pcmData, size_t sample
         free(encoder_output);
         return "";
     }
-    
+
+    auto t3_end = std::chrono::steady_clock::now();
+    auto decoder_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t3_end - t3_start).count();
+
     free(encoder_output);
+
+    // === 總結日誌 ===
+    auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t3_end - t0).count();
+    double audio_duration_s = samples / 16000.0;
+    double rtf = total_ms / (audio_duration_s * 1000.0);
+
+    LOGI("Inference Complete: Total=%lld ms (Preprocess=%lld, Encoder=%lld, Decoder=%lld), "
+         "Audio=%.1fs, RTF=%.3f, Text='%s'",
+         total_ms, preprocess_ms, encoder_ms, decoder_ms,
+         audio_duration_s, rtf, text.c_str());
+
     return text;
 }
 
@@ -761,27 +850,48 @@ WhisperAsrEngine::VadState WhisperAsrEngine::detectVadState(const int16_t* pcm, 
     }
     double zcr = static_cast<double>(zeroCrossings) / samples;
 
-    // 3. Production 版閾值（更細緻的分級）
-    const double SILENCE_RMS_THRESHOLD = 800.0;   // 真正靜音
-    const double PAUSE_RMS_THRESHOLD = 1500.0;    // 句內停頓
-    const double SILENCE_ZCR_THRESHOLD = 0.03;    // 低頻單調
-    const double PAUSE_ZCR_THRESHOLD = 0.06;      // 中頻變化
+    // 3. 修正後的閾值（基於實際日誌數據校準）
+    const double SILENCE_RMS_THRESHOLD = 40.0;    // 背景噪音：RMS < 40
+    const double PAUSE_RMS_THRESHOLD = 150.0;     // 修正：80 -> 150 (容忍較大底噪)
+    const double SILENCE_ZCR_THRESHOLD = 0.03;    // 保持不變
+    const double PAUSE_ZCR_THRESHOLD = 0.25;      // 修正：0.15 -> 0.25 (容忍高頻嘶嘶聲)
 
     VadState state;
 
-    if (rms < SILENCE_RMS_THRESHOLD && zcr < SILENCE_ZCR_THRESHOLD) {
-        state = VadState::SILENCE;  // 完全靜音
+    // 策略優化：如果 RMS 極低，忽略 ZCR 直接判為 SILENCE (過濾高頻底噪)
+    if (rms < SILENCE_RMS_THRESHOLD) {
+         state = VadState::SILENCE;
     } else if (rms < PAUSE_RMS_THRESHOLD && zcr < PAUSE_ZCR_THRESHOLD) {
         state = VadState::PAUSE;    // 可能是句內停頓
     } else {
         state = VadState::SPEECH;   // 活躍語音
     }
 
-    // Debug Log (Throttled)
-    if (impl_->audioBuffer.size() > 0 && impl_->audioBuffer.size() % (16000 * 5) < samples) {
+    // 4. 增強日誌機制（除錯與監控）
+    static VadState lastState = VadState::SILENCE;
+    static long lastLogTimeMs = 0;
+
+    // 4.1 記錄狀態轉換（每次變化都輸出）
+    if (state != lastState) {
         const char* state_str = (state == VadState::SILENCE) ? "SILENCE" :
                                 (state == VadState::PAUSE) ? "PAUSE" : "SPEECH";
-        LOGD("Hybrid VAD: RMS=%.2f, ZCR=%.4f, State=%s", rms, zcr, state_str);
+        const char* last_state_str = (lastState == VadState::SILENCE) ? "SILENCE" :
+                                     (lastState == VadState::PAUSE) ? "PAUSE" : "SPEECH";
+        LOGI("VAD State Transition: %s -> %s (RMS=%.2f, ZCR=%.4f)",
+             last_state_str, state_str, rms, zcr);
+        lastState = state;
+    }
+
+    // 4.2 定期輸出詳細狀態（每 5 秒，包含閾值）
+    long currentTimeMs = (impl_->audioBuffer.size() * 1000) / 16000;
+    if (currentTimeMs - lastLogTimeMs >= 5000) {
+        const char* state_str = (state == VadState::SILENCE) ? "SILENCE" :
+                                (state == VadState::PAUSE) ? "PAUSE" : "SPEECH";
+        LOGD("VAD Status: RMS=%.2f (S<%.0f, P<%.0f), ZCR=%.4f (S<%.2f, P<%.2f), State=%s",
+             rms, SILENCE_RMS_THRESHOLD, PAUSE_RMS_THRESHOLD,
+             zcr, SILENCE_ZCR_THRESHOLD, PAUSE_ZCR_THRESHOLD,
+             state_str);
+        lastLogTimeMs = currentTimeMs;
     }
 
     return state;
