@@ -97,9 +97,9 @@ class RkMeetingSession(
             override fun onAudioData(data: FloatArray) {
                 // 這裡會非常頻繁被呼叫 (每 160ms 一次)
                 // 為了驗證 Phase 3 成功，我們印出陣列長度與第一個值
-                if (data.isNotEmpty()) {
-                    android.util.Log.d("JNI_CALLBACK", "Received ${data.size} frames. First: ${data[0]}")
-                }
+//                if (data.isNotEmpty()) {
+//                    android.util.Log.d("JNI_CALLBACK", "Received ${data.size} frames. First: ${data[0]}")
+//                }
             }
 
             override fun onTranscript(segment: TranscriptSegment) {

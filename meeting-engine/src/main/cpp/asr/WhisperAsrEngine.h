@@ -42,24 +42,24 @@ public:
 private:
     // PImpl idiom
     struct Impl;
-    Impl* impl_; // Raw pointer manually managed or unique_ptr? 
-                 // Used raw pointer in .cpp previously, stick to it or use unique_ptr.
-                 // Header file needs to know size of unique_ptr which requires complete type in some cases,
-                 // but typically unique_ptr works with incomplete type if destructor is defined in .cpp.
-                 // To be safe and consistent with previous manual new/delete in .cpp:
-                 
-    // Auxiliary methods called by Impl or used internally, 
-    // but with PImpl, logic moves to .cpp.
-    // Keeping these virtual overrides.
-    
-    // We need these for internal use if we don't move everything to Impl.
-    // But better to move everything stateful to Impl.
-    
+    Impl* impl_;
+
+    // 聲明推論線程函數為 friend，允許訪問 private 成員
+    friend void inferenceThreadFunc(Impl* impl, WhisperAsrEngine* engine);
+
     // Private helpers for internal logic
     std::string runInference(const int16_t* pcmData, size_t samples);
     bool detectSilence(const int16_t* pcm, size_t samples);
     bool shouldSkipInference(const int16_t* pcm, size_t samples);
     void emitTranscript(const std::string& text, long startMs, long endMs);
+
+    // VAD 狀態檢測（簡化版）
+    enum class VadState {
+        SILENCE,    // 完全靜音（背景噪音）
+        PAUSE,      // 句內停頓（輕微能量降低）
+        SPEECH      // 活躍語音
+    };
+    VadState detectVadState(const int16_t* pcm, size_t samples);
     
     // Load/Validate helpers
     bool loadRknnModel(const std::string& modelPath, void* context); // changed to void* to avoid rknn_context
