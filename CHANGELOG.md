@@ -1,5 +1,34 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-01-27] - 修正 C++ 測試連結錯誤
+
+### 修正
+- `meeting-engine/src/main/cpp/CMakeLists.txt` 將 `native-lib.cpp` 納入 `asr_tests`，避免測試 helper 未連結
+
+---
+
+## [2026-01-27] - 補充 Gradle 執行 JAVA_HOME 設定
+
+### 文件
+- `CLAUDE.md` 補充先確認 `JAVA_HOME` 再執行 Gradle 的說明與範例
+
+---
+
+## [2026-01-27] - Native 資源釋放順序修正
+
+### 修正
+- `meeting-engine/src/main/cpp/native-lib.cpp` 調整釋放順序，避免 ASR 釋放早於處理器停止
+- `nativeRelease()` 釋放 JNI callback GlobalRef，避免記憶體洩漏
+- `meeting-engine/src/main/cpp/asr/WhisperAsrEngine.cpp` 失敗時補上 RKNN 資源清理
+- `meeting-engine/src/main/cpp/AudioProcessor.cpp` 啟動前檢查 JVM 與 callback 有效性
+
+### 測試
+- `meeting-engine/src/main/cpp/test/SampleTest.cpp` 新增釋放順序測試
+- `meeting-engine/src/main/cpp/test/SampleTest.cpp` 新增 RKNN 失敗清理測試
+- `meeting-engine/src/main/cpp/test/SampleTest.cpp` 新增處理器啟動條件測試
+
+---
+
 ## [2026-01-22] - Phase 6 收尾與記憶體驗證
 
 ### 新增

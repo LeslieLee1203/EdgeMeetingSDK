@@ -112,7 +112,8 @@ if(TEST_SOURCES)
     add_executable(
             asr_tests
             ${TEST_SOURCES}
-            # 需要測試的原始碼（排除 JNI 綁定層 native-lib.cpp）
+            # 需要測試的原始碼（包含測試 helper 定義）
+            native-lib.cpp
             AudioRecorder.cpp
             AudioProcessor.cpp
             # Phase 3 ASR 測試源碼

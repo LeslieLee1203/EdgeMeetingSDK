@@ -39,6 +39,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./gradlew :app:connectedAndroidTest
 ```
 
+### Important: Verify JAVA_HOME before running Gradle
+
+JDK install paths vary across machines, and tool environments may not inherit your shell settings.
+Verify a valid `JAVA_HOME` first, then run Gradle with the correct path:
+
+```bash
+echo "$JAVA_HOME"
+JAVA_HOME="$("/usr/libexec/java_home")"
+JAVA_HOME="$JAVA_HOME" ./gradlew :meeting-engine:test
+```
+
 ## C++ Native Tests
 
 C++ tests are compiled with Google Test but require execution on an Android device:

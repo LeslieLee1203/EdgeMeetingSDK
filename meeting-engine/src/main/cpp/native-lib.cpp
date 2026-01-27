@@ -2,6 +2,7 @@
 
 #include <jni.h>
 #include <string>
+#include <vector>
 #include <android/log.h>
 #include "AudioRecorder.h"
 #include "AudioProcessor.h"
@@ -18,6 +19,21 @@ static jobject gCallbackObj = nullptr;  // T041: 全域 callback 物件（用於
 #define LOG_TAG "native-lib"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+
+// 釋放順序（測試可驗證）
+std::vector<std::string> buildReleaseOrderLabels(
+    bool hasProcessor,
+    bool hasRecorder,
+    bool hasAsr,
+    bool hasCallback
+) {
+    std::vector<std::string> order;
+    if (hasProcessor) order.emplace_back("stop_processor");
+    if (hasRecorder) order.emplace_back("stop_recorder");
+    if (hasAsr) order.emplace_back("release_asr");
+    if (hasCallback) order.emplace_back("delete_callback");
+    return order;
+}
 
 // Helper function to setup ASR callbacks
 // This logic is needed in both nativeInit (if callback exists) and nativeSetCallback (if engine exists)
@@ -219,14 +235,42 @@ Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeStop(JNIEnv* env, jobje
 
 JNIEXPORT void JNICALL
 Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeRelease(JNIEnv* env, jobject) {
-    if (gAsrEngine) {
-        gAsrEngine->release();
-        gAsrEngine.reset();
-        LOGI("ASR engine released");
-    }
+    const auto order = buildReleaseOrderLabels(
+        gProcessor != nullptr,
+        gRecorder != nullptr,
+        gAsrEngine != nullptr,
+        gCallbackObj != nullptr
+    );
 
-    if (gProcessor) { gProcessor->stop(); gProcessor.reset(); }
-    if (gRecorder) { gRecorder->stop(); gRecorder.reset(); }
+    for (const auto& step : order) {
+        if (step == "stop_processor") {
+            if (gProcessor) {
+                gProcessor->stop();
+                gProcessor->setAsrEngine(nullptr);
+                gProcessor.reset();
+            }
+        } else if (step == "stop_recorder") {
+            if (gRecorder) {
+                gRecorder->stop();
+                gRecorder.reset();
+            }
+        } else if (step == "release_asr") {
+            if (gAsrEngine) {
+                gAsrEngine->release();
+                gAsrEngine.reset();
+                LOGI("ASR engine released");
+            }
+        } else if (step == "delete_callback") {
+            if (gCallbackObj) {
+                if (env) {
+                    env->DeleteGlobalRef(gCallbackObj);
+                } else {
+                    LOGE("Native Release: env is null, cannot delete callback");
+                }
+                gCallbackObj = nullptr;
+            }
+        }
+    }
 
     LOGI("Native Release");
 }

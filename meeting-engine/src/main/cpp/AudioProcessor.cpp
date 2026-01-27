@@ -8,6 +8,11 @@
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
+// 供測試使用：判斷是否可啟動處理器
+bool shouldStartProcessor(bool hasJvm, bool hasCallback) {
+    return hasJvm && hasCallback;
+}
+
 AudioProcessor::AudioProcessor(AudioRecorder* rec, JavaVM* jvm, jobject cbObj)
         : recorder(rec), javaVM(jvm) {
 
@@ -36,6 +41,10 @@ AudioProcessor::~AudioProcessor() {
 
 void AudioProcessor::start() {
     if (isRunning) return;
+    if (!shouldStartProcessor(javaVM != nullptr, globalCallbackObj != nullptr)) {
+        LOGE("Processor start skipped: invalid JVM or callback");
+        return;
+    }
     isRunning = true;
     workerThread = std::thread(&AudioProcessor::workerLoop, this);
     LOGD("Processor thread started");

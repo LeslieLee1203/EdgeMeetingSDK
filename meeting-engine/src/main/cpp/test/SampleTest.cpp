@@ -14,6 +14,25 @@
  */
 
 #include <gtest/gtest.h>
+#include <string>
+#include <vector>
+
+// 供測試使用：native-lib.cpp 內的 release 序列建構函式
+std::vector<std::string> buildReleaseOrderLabels(
+    bool hasProcessor,
+    bool hasRecorder,
+    bool hasAsr,
+    bool hasCallback
+);
+
+// 供測試使用：WhisperAsrEngine.cpp 內的 RKNN 失敗清理
+std::vector<int> cleanupRknnOnFailureTestResult(
+    bool setInputAttrs,
+    bool setOutputAttrs
+);
+
+// 供測試使用：AudioProcessor 啟動條件
+bool shouldStartProcessor(bool hasJvm, bool hasCallback);
 
 // 簡單的示範測試，驗證 Google Test 運作正常
 TEST(SampleTest, BasicAssertion) {
@@ -41,6 +60,33 @@ TEST(SampleTest, NumericComparison) {
     EXPECT_GT(b, a);  // b > a
     EXPECT_LE(a, 10); // a <= 10
     EXPECT_GE(b, 20); // b >= 20
+}
+
+TEST(NativeReleaseOrderTest, ShouldReleaseInSafeOrderWhenAllPresent) {
+    const auto order = buildReleaseOrderLabels(true, true, true, true);
+
+    const std::vector<std::string> expected = {
+        "stop_processor",
+        "stop_recorder",
+        "release_asr",
+        "delete_callback"
+    };
+
+    EXPECT_EQ(order, expected);
+}
+
+TEST(WhisperAsrEngineTest, CleanupRknnOnFailureClearsAttrs) {
+    const auto result = cleanupRknnOnFailureTestResult(true, true);
+
+    const std::vector<int> expected = {1, 1};
+    EXPECT_EQ(result, expected);
+}
+
+TEST(AudioProcessorTest, ShouldStartRequiresJvmAndCallback) {
+    EXPECT_FALSE(shouldStartProcessor(false, true));
+    EXPECT_FALSE(shouldStartProcessor(true, false));
+    EXPECT_FALSE(shouldStartProcessor(false, false));
+    EXPECT_TRUE(shouldStartProcessor(true, true));
 }
 
 // 注意：此檔案在 Phase 3 實作 AsrEngine 後將被移除或重構為真實測試

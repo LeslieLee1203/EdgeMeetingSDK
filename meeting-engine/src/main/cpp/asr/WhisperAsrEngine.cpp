@@ -33,9 +33,18 @@ struct RknnModelContext {
     rknn_tensor_attr *output_attrs = nullptr;
 };
 
+static int release_rknn_model(RknnModelContext *app_ctx);
+
 // 輔助函式：載入與釋放
 static int init_rknn_model(const char *model_path, RknnModelContext *app_ctx) {
     int ret;
+    if (!app_ctx || !model_path) return -1;
+
+    // 確保初始狀態乾淨，避免失敗時釋放未初始化指標
+    app_ctx->ctx = 0;
+    app_ctx->input_attrs = nullptr;
+    app_ctx->output_attrs = nullptr;
+
     // Load RKNN Model
     ret = rknn_init(&app_ctx->ctx, (void *)model_path, 0, 0, NULL);
     if (ret < 0) {
@@ -47,6 +56,7 @@ static int init_rknn_model(const char *model_path, RknnModelContext *app_ctx) {
     ret = rknn_query(app_ctx->ctx, RKNN_QUERY_IN_OUT_NUM, &app_ctx->io_num, sizeof(app_ctx->io_num));
     if (ret != RKNN_SUCC) {
         LOGE("rknn_query IO_NUM fail! ret=%d", ret);
+        release_rknn_model(app_ctx);
         return -1;
     }
 
@@ -60,6 +70,7 @@ static int init_rknn_model(const char *model_path, RknnModelContext *app_ctx) {
         ret = rknn_query(app_ctx->ctx, RKNN_QUERY_INPUT_ATTR, &(app_ctx->input_attrs[i]), sizeof(rknn_tensor_attr));
         if (ret != RKNN_SUCC) {
             LOGE("rknn_query INPUT_ATTR %d fail! ret=%d", i, ret);
+            release_rknn_model(app_ctx);
             return -1;
         }
     }
@@ -70,6 +81,7 @@ static int init_rknn_model(const char *model_path, RknnModelContext *app_ctx) {
         ret = rknn_query(app_ctx->ctx, RKNN_QUERY_OUTPUT_ATTR, &(app_ctx->output_attrs[i]), sizeof(rknn_tensor_attr));
         if (ret != RKNN_SUCC) {
             LOGE("rknn_query OUTPUT_ATTR %d fail! ret=%d", i, ret);
+            release_rknn_model(app_ctx);
             return -1;
         }
     }
@@ -91,6 +103,25 @@ static int release_rknn_model(RknnModelContext *app_ctx) {
         app_ctx->ctx = 0;
     }
     return 0;
+}
+
+// 供測試使用：模擬失敗清理，避免依賴實際 RKNN runtime
+std::vector<int> cleanupRknnOnFailureTestResult(bool setInputAttrs, bool setOutputAttrs) {
+    RknnModelContext ctx;
+    memset(&ctx, 0, sizeof(ctx));
+
+    if (setInputAttrs) {
+        ctx.input_attrs = (rknn_tensor_attr *)malloc(sizeof(rknn_tensor_attr));
+    }
+    if (setOutputAttrs) {
+        ctx.output_attrs = (rknn_tensor_attr *)malloc(sizeof(rknn_tensor_attr));
+    }
+
+    release_rknn_model(&ctx);
+
+    const int inputCleared = (ctx.input_attrs == nullptr) ? 1 : 0;
+    const int outputCleared = (ctx.output_attrs == nullptr) ? 1 : 0;
+    return { inputCleared, outputCleared };
 }
 
 // PImpl idiom to hide implementation details from header
