@@ -25,6 +25,12 @@ std::vector<std::string> buildReleaseOrderLabels(
     bool hasCallback
 );
 
+// 供測試使用：native-lib.cpp 內的 ASR 清理順序
+std::vector<std::string> buildAsrResetOrderLabels(
+    bool hasAsr,
+    bool hasProcessor
+);
+
 // 供測試使用：WhisperAsrEngine.cpp 內的 RKNN 失敗清理
 std::vector<int> cleanupRknnOnFailureTestResult(
     bool setInputAttrs,
@@ -73,6 +79,22 @@ TEST(NativeReleaseOrderTest, ShouldReleaseInSafeOrderWhenAllPresent) {
     };
 
     EXPECT_EQ(order, expected);
+}
+
+TEST(NativeInitTest, ShouldClearProcessorBeforeReleasingAsr) {
+    const auto order = buildAsrResetOrderLabels(true, true);
+
+    const std::vector<std::string> expected = {
+        "clear_processor_asr",
+        "release_asr"
+    };
+
+    EXPECT_EQ(order, expected);
+}
+
+TEST(NativeInitTest, ShouldReturnEmptyOrderWhenNoAsr) {
+    const auto order = buildAsrResetOrderLabels(false, true);
+    EXPECT_TRUE(order.empty());
 }
 
 TEST(WhisperAsrEngineTest, CleanupRknnOnFailureClearsAttrs) {

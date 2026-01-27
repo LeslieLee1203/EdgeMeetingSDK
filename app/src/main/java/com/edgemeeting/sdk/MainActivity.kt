@@ -278,13 +278,9 @@ fun LanguageSelector(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    val languageOptions = listOf(
-        LanguageSetting.Auto to "Auto (自動偵測)",
-        LanguageSetting.Fixed("zh") to "中文 (Chinese)",
-        LanguageSetting.Fixed("en") to "English (英文)",
-        LanguageSetting.Fixed("ja") to "日本語 (Japanese)",
-        LanguageSetting.Fixed("ko") to "한국어 (Korean)"
-    )
+    val languageOptions = supportedLanguageOptions().ifEmpty {
+        listOf(LanguageSetting.Auto to "Auto (自動偵測)")
+    }
 
     val currentLabel = languageOptions.find { it.first == selectedLanguage }?.second ?: "Auto (自動偵測)"
 
@@ -321,4 +317,17 @@ fun LanguageSelector(
             }
         }
     }
+}
+
+/**
+ * 目前 Native 層支援的語言選項
+ *
+ * 注意：C++ Whisper 實作僅支援 auto/zh/en
+ */
+fun supportedLanguageOptions(): List<Pair<LanguageSetting, String>> {
+    return listOf(
+        LanguageSetting.Auto to "Auto (自動偵測)",
+        LanguageSetting.Fixed("zh") to "中文 (Chinese)",
+        LanguageSetting.Fixed("en") to "English (英文)"
+    )
 }

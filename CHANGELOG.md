@@ -1,5 +1,25 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-01-27] - 語言選項與 Native 支援對齊
+
+### 修正
+- `app/src/main/java/com/edgemeeting/sdk/MainActivity.kt` 語言選項僅保留 auto/zh/en，避免與 Native 支援不一致
+
+### 測試
+- `app/src/test/java/com/edgemeeting/sdk/LanguageOptionsTest.kt` 新增語言選項對齊測試
+
+---
+
+## [2026-01-27] - 修正純錄音模式切換的 ASR 清理
+
+### 修正
+- `meeting-engine/src/main/cpp/native-lib.cpp` 純錄音模式初始化時釋放 ASR，並清除處理器 ASR 參考
+
+### 測試
+- `meeting-engine/src/main/cpp/test/SampleTest.cpp` 新增純錄音模式 ASR 清理順序測試
+
+---
+
 ## [2026-01-27] - 修正 C++ 測試連結錯誤
 
 ### 修正

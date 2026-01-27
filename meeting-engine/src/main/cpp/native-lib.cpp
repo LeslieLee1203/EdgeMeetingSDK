@@ -35,6 +35,17 @@ std::vector<std::string> buildReleaseOrderLabels(
     return order;
 }
 
+// 供測試使用：純錄音模式切換時的 ASR 清理順序
+std::vector<std::string> buildAsrResetOrderLabels(
+    bool hasAsr,
+    bool hasProcessor
+) {
+    std::vector<std::string> order;
+    if (hasProcessor) order.emplace_back("clear_processor_asr");
+    if (hasAsr) order.emplace_back("release_asr");
+    return order;
+}
+
 // Helper function to setup ASR callbacks
 // This logic is needed in both nativeInit (if callback exists) and nativeSetCallback (if engine exists)
 void setupAsrCallbacks() {
@@ -143,6 +154,25 @@ Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeInit(
     env->ReleaseStringUTFChars(language, languageChars);
 
     if (modelsPathStr.empty()) {
+        const auto order = buildAsrResetOrderLabels(
+            gAsrEngine != nullptr,
+            gProcessor != nullptr
+        );
+
+        for (const auto& step : order) {
+            if (step == "clear_processor_asr") {
+                if (gProcessor) {
+                    gProcessor->setAsrEngine(nullptr);
+                }
+            } else if (step == "release_asr") {
+                if (gAsrEngine) {
+                    gAsrEngine->release();
+                    gAsrEngine.reset();
+                    LOGI("ASR engine released (switch to audio-only)");
+                }
+            }
+        }
+
         LOGI("Init: Pure audio mode (no ASR)");
         return 0;
     }
