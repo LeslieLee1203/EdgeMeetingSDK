@@ -1,0 +1,116 @@
+---
+description: Restate requirements, assess risks, and create step-by-step implementation plan. WAIT for user CONFIRM before touching any code.
+---
+
+# Plan Command
+
+This command invokes the **planner** agent to create a comprehensive implementation plan before writing any code.
+
+## What This Command Does
+
+1. **Restate Requirements** - Clarify what needs to be built
+2. **Identify Risks** - Surface potential issues and blockers
+3. **Create Step Plan** - Break down implementation into phases
+4. **Wait for Confirmation** - MUST receive user approval before proceeding
+
+## When to Use
+
+Use `/plan` when:
+- Starting a new feature
+- Making significant architectural changes
+- Working on complex refactoring
+- Multiple files/components will be affected
+- Requirements are unclear or ambiguous
+
+## How It Works
+
+The planner agent will:
+
+1. **Analyze the request** and restate requirements in clear terms
+2. **Break down into phases** with specific, actionable steps
+3. **Identify dependencies** between components
+4. **Assess risks** and potential blockers
+5. **Estimate complexity** (High/Medium/Low)
+6. **Present the plan** and WAIT for your explicit confirmation
+
+## Example Usage
+
+```
+User: /plan I need to add a new "Transaction History" screen with filtering
+
+Agent (planner):
+# Implementation Plan: Transaction History Screen
+
+## Requirements Restatement
+- Display list of user transactions (deposits, withdrawals, trades)
+- Filter by date range, type, and amount
+- Support pull-to-refresh and infinite scrolling
+- Offline support (Room caching)
+
+## Implementation Phases
+
+### Phase 1: Data Layer (Room & Repository)
+- Create `TransactionEntity` for local caching
+- Create `TransactionDao` with filtering queries (SQLite)
+- Update `TransactionRepository` to fetch from API and cache locally (Single source of truth)
+- Add Unit Tests for Repository and DAO
+
+### Phase 2: Domain Layer (UseCase)
+- Create `GetTransactionsUseCase` with filtering parameters
+- Implement error handling (Result<List<Transaction>>)
+- Add Unit Tests for UseCase
+
+### Phase 3: UI Layer (ViewModel & State)
+- Create `TransactionViewModel`
+- Define `TransactionUiState` (Loading, Success, Error, Empty)
+- Implement `StateFlow` for UI observation
+- Add Unit Tests for ViewModel
+
+### Phase 4: UI Components (Compose)
+- Create `TransactionItem` composable
+- Create `TransactionList` with `LazyColumn`
+- Implement `FilterSheet` (ModalBottomSheet)
+- Integrate `PullRefreshIndicator`
+- Add UI Tests (ComposeTestRule)
+
+## Dependencies
+- Room Database
+- Retrofit (API)
+- Jetpack Compose M3
+- Koin/Hilt (Dependency Injection)
+
+## Risks
+- MEDIUM: Large data sets affecting list performance (Need Paging 3?)
+- LOW: Offline synchronization conflicts
+- LOW: Complex filtering logic in SQL
+
+## Estimated Complexity: MEDIUM
+- Backend/API: 0 hours (Assumed existing)
+- Android Core: 4-6 hours
+- UI/Compose: 4-5 hours
+- Testing: 2-3 hours
+- Total: 10-14 hours
+
+**WAITING FOR CONFIRMATION**: Proceed with this plan? (yes/no/modify)
+```
+
+## Important Notes
+
+**CRITICAL**: The planner agent will **NOT** write any code until you explicitly confirm the plan with "yes" or "proceed" or similar affirmative response.
+
+If you want changes, respond with:
+- "modify: [your changes]"
+- "different approach: [alternative]"
+- "skip phase 2 and do phase 3 first"
+
+## Integration with Other Commands
+
+After planning:
+- Use `/tdd` to implement with test-driven development
+- Use `/build-and-fix` if build errors occur
+- Use `/code-review` to review completed implementation
+
+## Related Agents
+
+This command invokes the `planner` agent located at:
+`~/.claude/agents/planner.md`
