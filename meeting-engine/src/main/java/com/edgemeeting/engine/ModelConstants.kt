@@ -50,7 +50,6 @@ object ModelConstants {
         "whisper_encoder_base_20s.rknn",
         "whisper_decoder_base_20s.rknn",
         "vocab_en.txt",
-        "vocab_zh.txt",
         "mel_80_filters.txt"
     )
 }

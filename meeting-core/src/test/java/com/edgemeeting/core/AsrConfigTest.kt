@@ -81,4 +81,30 @@ class AsrConfigTest {
         assertNotNull(configZh)
         assertNotNull(configEn)
     }
+
+    @Test
+    fun `Whisper config should support Japanese language`() {
+        // 建立日文配置
+        val config = AsrConfig.Whisper(
+            modelsPath = "/data/models",
+            language = LanguageSetting.Fixed("ja")
+        )
+
+        // 驗證語言代碼
+        val lang = (config.language as LanguageSetting.Fixed).languageCode
+        assertEquals("ja", lang)
+    }
+
+    @Test
+    fun `Whisper config should support Korean language`() {
+        // 建立韓文配置
+        val config = AsrConfig.Whisper(
+            modelsPath = "/data/models",
+            language = LanguageSetting.Fixed("ko")
+        )
+
+        // 驗證語言代碼
+        val lang = (config.language as LanguageSetting.Fixed).languageCode
+        assertEquals("ko", lang)
+    }
 }

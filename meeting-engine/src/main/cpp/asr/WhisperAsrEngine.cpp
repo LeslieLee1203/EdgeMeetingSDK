@@ -193,15 +193,20 @@ bool WhisperAsrEngine::init(const std::string& modelsPath, const std::string& la
     // 1. 設定模型路徑
     std::string encoderPath = modelsPath + "/whisper_encoder_base_20s.rknn";
     std::string decoderPath = modelsPath + "/whisper_decoder_base_20s.rknn";
-    std::string vocabPath = modelsPath + "/vocab_en.txt"; // 預設英文
     std::string filtersPath = modelsPath + "/mel_80_filters.txt";
 
-    // 2. 設定語言
+    // 2. 設定語言與 task_code
+    // vocab_en.txt 是 Whisper 的統一多語言 BPE 詞彙表，所有語言共享
+    std::string vocabPath = modelsPath + "/vocab_en.txt";
+
     if (language == "zh") {
-        impl_->task_code = 50260;
-        vocabPath = modelsPath + "/vocab_zh.txt";
+        impl_->task_code = 50260;  // 中文
+    } else if (language == "ja") {
+        impl_->task_code = 50266;  // 日文
+    } else if (language == "ko") {
+        impl_->task_code = 50264;  // 韓文
     } else {
-        impl_->task_code = 50259; // en
+        impl_->task_code = 50259;  // 英文（預設）
     }
 
     // 3. 讀取資源
@@ -634,10 +639,8 @@ static int inference_decoder(RknnModelContext *ctx, float *encoder_output, Vocab
     replace_substr(all_token_str, "\u0120", " ");
     replace_substr(all_token_str, "<|endoftext|>", "");
     replace_substr(all_token_str, "\n", "");
-    
-    if (task_code == 50260) {
-        all_token_str = base64_decode(all_token_str);
-    }
+
+    // Whisper 的 BPE tokenizer 直接輸出 UTF-8，無需額外解碼
     
     result_text = all_token_str;
     LOGI("Decoder Result: '%s'", result_text.c_str());

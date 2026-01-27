@@ -31,8 +31,8 @@ class ModelConstantsTest {
         // 為什麼要測試這個：確保預期的模型檔案清單完整，用於檔案完整性驗證
         val expectedFiles = ModelConstants.EXPECTED_MODEL_FILES
 
-        // 應包含 encoder, decoder, vocab_en, vocab_zh, filters 共 5 個檔案
-        assertEquals(5, expectedFiles.size)
+        // 應包含 encoder, decoder, vocab_en filters 共 4 個檔案
+        assertEquals(4, expectedFiles.size)
 
         // 驗證檔案名稱正確
         assertTrue(
@@ -46,10 +46,6 @@ class ModelConstantsTest {
         assertTrue(
             "Should contain vocab_en.txt",
             expectedFiles.contains("vocab_en.txt")
-        )
-        assertTrue(
-            "Should contain vocab_zh.txt",
-            expectedFiles.contains("vocab_zh.txt")
         )
         assertTrue(
             "Should contain mel_80_filters.txt",

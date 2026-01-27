@@ -191,11 +191,14 @@ RkMeetingSession.transcriptFlow → UI
 - Models packaged in `meeting-engine/src/main/assets/models/`
 - On first run, copies to app-private storage (`context.filesDir/models/`)
 - RKNN requires filesystem paths, not assets streams
-- Required files: `whisper_encoder_base_20s.rknn`, `whisper_decoder_base_20s.rknn`, `vocab_en.txt`, `vocab_zh.txt`, `mel_80_filters.txt`
+- Required files: `whisper_encoder_base_20s.rknn`, `whisper_decoder_base_20s.rknn`, `vocab_en.txt`, `mel_80_filters.txt`
+- **Important**: `vocab_en.txt` is Whisper's unified multilingual BPE vocabulary (51,864 tokens) shared across all languages (English, Chinese, Japanese, Korean, etc.)
 
 **Language Support**:
-- `LanguageSetting.Fixed("en")` - 預設英文
-- `LanguageSetting.Fixed("zh")` - 指定中文以提升準確度
+- `LanguageSetting.Fixed("en")` - 英文（預設）- task_code=50259
+- `LanguageSetting.Fixed("zh")` - 中文 - task_code=50260
+- `LanguageSetting.Fixed("ja")` - 日文 - task_code=50266
+- `LanguageSetting.Fixed("ko")` - 韓文 - task_code=50264
 - Passed through: `AsrConfig.Whisper` → `EngineConfig` → JNI → `WhisperAsrEngine.init()`
 
 **Audio Preprocessing** (`WhisperUtils.cpp`):
@@ -527,7 +530,7 @@ enable_testing()
 ```
 UI Layer (MainActivity)
     ↓
-val languageSetting = LanguageSetting.Fixed("en")  // or LanguageSetting.Fixed("zh")
+val languageSetting = LanguageSetting.Fixed("en")  // "zh", "ja", "ko" 等
     ↓
 RkMeetingSession(bridge, modelProvider, languageSetting)
     ↓
@@ -536,13 +539,17 @@ AsrConfig.Whisper(modelsPath, language = languageSetting)
 EngineConfig(asrConfig)
     ↓
 JniEngineBridge.init(config)
-    ├─ Extract language string: "zh" or "en"
+    ├─ Extract language string: "zh", "en", "ja", or "ko"
     └─ nativeInit(modelsPath, languageString)  [JNI call]
         ↓
 WhisperAsrEngine::init(modelsPath, language) [C++]
-    ├─ if (language == "zh") → task_code = 50260, load vocab_zh.txt
-    ├─ else if (language == "en") → task_code = 50259, load vocab_en.txt
-    └─ RKNN Whisper 不支援 auto
+    ├─ Load unified multilingual vocabulary: vocab_en.txt (所有語言共享)
+    ├─ Set task_code based on language:
+    │  ├─ if (language == "zh") → task_code = 50260  // 中文
+    │  ├─ else if (language == "ja") → task_code = 50266  // 日文
+    │  ├─ else if (language == "ko") → task_code = 50264  // 韓文
+    │  └─ else → task_code = 50259  // 英文（預設）
+    └─ task_code 控制 decoder 的語言輸出，BPE 詞彙表包含所有語言的 tokens
         ↓
 WhisperAsrEngine::runInference()
     └─ Decoder uses task_code as initial prompt token

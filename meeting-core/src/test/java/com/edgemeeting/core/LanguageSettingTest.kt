@@ -43,6 +43,15 @@ class LanguageSettingTest {
     }
 
     @Test
+    fun `Fixed mode should accept Korean language code`() {
+        // 建立 Fixed 模式，指定韓文
+        val setting = LanguageSetting.Fixed("ko")
+
+        // 驗證語言代碼
+        assertEquals("ko", setting.languageCode)
+    }
+
+    @Test
     fun `Fixed mode should be a LanguageSetting`() {
         val fixed = LanguageSetting.Fixed("zh")
         assertNotNull(fixed)
