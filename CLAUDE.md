@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Development Guidelines
+
+This project follows strict coding standards and testing requirements:
+- **Coding Style**: See `.claude/rules/coding-style.md` for immutability patterns, Compose best practices, and JNI safety
+- **Testing Requirements**: See `.claude/rules/testing.md` for TDD workflow and 80% coverage requirements
+
 ## Language Preference
 
 **Communication Language**: Use Traditional Chinese (Taiwan, zh_TW) for all responses and documentation. Code comments, commit messages, and technical documentation should be written in Traditional Chinese.

@@ -322,11 +322,13 @@ fun LanguageSelector(
 /**
  * 目前 Native 層支援的語言選項
  *
- * 注意：RKNN Whisper 不支援 auto，僅支援 en/zh
+ * 注意：RKNN Whisper 不支援 auto，支援 en/zh/ja/ko
  */
 fun supportedLanguageOptions(): List<Pair<LanguageSetting, String>> {
     return listOf(
         LanguageSetting.Fixed("en") to "English",
-        LanguageSetting.Fixed("zh") to "Chinese"
+        LanguageSetting.Fixed("zh") to "中文",
+        LanguageSetting.Fixed("ja") to "日本語",
+        LanguageSetting.Fixed("ko") to "한국어"
     )
 }
