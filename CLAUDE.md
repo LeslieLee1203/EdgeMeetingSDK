@@ -6,6 +6,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Communication Language**: Use Traditional Chinese (Taiwan, zh_TW) for all responses and documentation. Code comments, commit messages, and technical documentation should be written in Traditional Chinese.
 
+## Python Environment
+
+**IMPORTANT**: All Python scripts MUST be executed using `uv` virtual environment to isolate from system Python.
+
+```bash
+# Run Python scripts with uv
+uv run python script_name.py
+
+# Install Python dependencies with uv
+uv pip install package_name
+
+# Example: Running vocab generation script
+uv run python scripts/fix_vocab_with_transformers.py
+
+# Example: Running verification script
+uv run python scripts/verify_bpe_decode.py
+```
+
+**Rationale**:
+- Isolates project dependencies from system Python packages
+- Ensures reproducible builds across different machines
+- Prevents conflicts with system-wide Python installations
+- The project already has a `.python-version` file and `pyproject.toml` configured for uv
+
+**Never use**:
+- ❌ `python script.py` (uses system Python)
+- ❌ `python3 script.py` (uses system Python3)
+- ❌ `pip install` (installs to system Python)
+
+**Always use**:
+- ✅ `uv run python script.py` (uses isolated environment)
+- ✅ `uv pip install package` (installs to uv environment)
+- ✅ `uv sync` (syncs dependencies from pyproject.toml)
+
 ## Build Commands
 
 ```bash
