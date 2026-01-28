@@ -1,4 +1,5 @@
 #include "WhisperUtils.h"
+#include "bpe_unicode_map.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -6,6 +7,11 @@
 #include <vector>
 #include <iostream>
 #include "fftw3.h"
+#include <android/log.h>
+
+#define LOG_TAG "WhisperUtils"
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 
 // 實作 transpose
 static void transpose(fftwf_complex *input, int input_rows, int input_cols, fftwf_complex *output) {
@@ -229,9 +235,73 @@ static int32_t get_char_index(char c) {
     return 0;
 }
 
+/**
+ * 將 Whisper Byte-Level BPE token 解碼為 UTF-8 字節序列
+ *
+ * Whisper 使用 GPT-2 的 Byte-Level BPE 編碼：
+ * - 原始文字 '这' (UTF-8: 0xE8 0xBF 0x99)
+ * - 在 vocab 中存儲為 'è¿Ļ' (U+00E8 U+00BF U+013B)
+ * - 需要反向映射：U+00E8→0xE8, U+00BF→0xBF, U+013B→0x99
+ * - 最終得到 UTF-8 字節 [0xE8, 0xBF, 0x99]，解碼為 '这'
+ *
+ * @param token_str BPE token 字符串（UTF-8 編碼）
+ * @param utf8_bytes 輸出的原始 UTF-8 字節序列
+ */
+void decode_bpe_token(const char* token_str, std::vector<uint8_t>& utf8_bytes) {
+    if (!token_str) return;
+
+    // 將每個 Unicode 字符反向映射為原始字節
+    for (size_t i = 0; token_str[i] != '\0'; ) {
+        // 讀取一個 UTF-8 字符，獲取其 Unicode code point
+        uint32_t code_point = 0;
+        size_t bytes_read = 0;
+
+        unsigned char c = static_cast<unsigned char>(token_str[i]);
+
+        if (c < 0x80) {
+            // ASCII (1 byte)
+            code_point = c;
+            bytes_read = 1;
+        } else if ((c & 0xE0) == 0xC0) {
+            // 2 bytes: 110xxxxx 10xxxxxx
+            code_point = ((c & 0x1F) << 6) | (static_cast<unsigned char>(token_str[i + 1]) & 0x3F);
+            bytes_read = 2;
+        } else if ((c & 0xF0) == 0xE0) {
+            // 3 bytes: 1110xxxx 10xxxxxx 10xxxxxx
+            code_point = ((c & 0x0F) << 12) |
+                         ((static_cast<unsigned char>(token_str[i + 1]) & 0x3F) << 6) |
+                         (static_cast<unsigned char>(token_str[i + 2]) & 0x3F);
+            bytes_read = 3;
+        } else if ((c & 0xF8) == 0xF0) {
+            // 4 bytes: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+            code_point = ((c & 0x07) << 18) |
+                         ((static_cast<unsigned char>(token_str[i + 1]) & 0x3F) << 12) |
+                         ((static_cast<unsigned char>(token_str[i + 2]) & 0x3F) << 6) |
+                         (static_cast<unsigned char>(token_str[i + 3]) & 0x3F);
+            bytes_read = 4;
+        } else {
+            // 非法 UTF-8，跳過
+            LOGW("Invalid UTF-8 sequence at position %zu", i);
+            i++;
+            continue;
+        }
+
+        i += bytes_read;
+
+        // 反向映射：Unicode code point → 原始字節
+        auto it = whisper::UNICODE_TO_BYTE_MAP.find(code_point);
+        if (it != whisper::UNICODE_TO_BYTE_MAP.end()) {
+            utf8_bytes.push_back(it->second);
+        } else {
+            // 未找到映射，記錄警告但繼續
+            LOGW("Unknown BPE code point: U+%04X", code_point);
+        }
+    }
+}
+
 std::string base64_decode(const std::string &encoded_string) {
     if (encoded_string.empty()) return "";
-    return encoded_string; // 暫時保留原樣，需實作 base64 logic 才能支援中文
+    return encoded_string; // 已棄用，Whisper 使用 Byte-Level BPE
 }
 
 void replace_substr(std::string &str, const std::string &from, const std::string &to) {

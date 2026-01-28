@@ -42,7 +42,11 @@ void audio_preprocess(const float* audio_data, int audio_len, float *mel_filters
 // 找出最大值索引
 int argmax(float *array);
 
-// Base64 解碼 (用於中文 tokens)
+// Byte-Level BPE 解碼 (用於 Whisper tokens)
+// 將 BPE token 字符串轉換為 UTF-8 字節序列
+void decode_bpe_token(const char* token_str, std::vector<uint8_t>& utf8_bytes);
+
+// Base64 解碼 (已棄用，Whisper 使用 Byte-Level BPE)
 std::string base64_decode(const std::string &s);
 
 // 字串替換

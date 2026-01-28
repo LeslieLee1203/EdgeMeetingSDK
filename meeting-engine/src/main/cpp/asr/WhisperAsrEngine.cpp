@@ -587,8 +587,10 @@ static int inference_decoder(RknnModelContext *ctx, float *encoder_output, Vocab
     int end_token = 50257;
     int pop_id = MAX_TOKENS;
     int count = 0;
-    
-    std::string all_token_str = "";
+
+    // 使用 Byte-Level BPE 解碼：收集 UTF-8 字節而非字符串
+    std::vector<uint8_t> utf8_bytes;
+    utf8_bytes.reserve(1024);  // 預分配空間
 
     // Fill buffer pattern
     for (int i = 0; i < MAX_TOKENS / 4; i++) {
@@ -601,20 +603,21 @@ static int inference_decoder(RknnModelContext *ctx, float *encoder_output, Vocab
 
         rknn_inputs_set(ctx->ctx, 2, inputs);
         rknn_run(ctx->ctx, nullptr);
-        
+
         outputs[0].want_float = 1;
         rknn_outputs_get(ctx->ctx, 1, outputs, NULL);
 
         next_token = argmax((float *)outputs[0].buf);
-        
+
         // Debug first few tokens
         if (count < 5) {
             LOGD("Decoder Step %d: TokenID=%d", count, next_token);
         }
 
+        // Byte-Level BPE 解碼：將 token 轉換為 UTF-8 字節
         if (next_token < VOCAB_NUM) {
              if (vocab[next_token].token) {
-                 all_token_str += vocab[next_token].token;
+                 decode_bpe_token(vocab[next_token].token, utf8_bytes);
              }
         }
 
@@ -622,7 +625,7 @@ static int inference_decoder(RknnModelContext *ctx, float *encoder_output, Vocab
         if (next_token > timestamp_begin) {
             continue;
         }
-        
+
         if (pop_id > 4) pop_id--;
         tokens[MAX_TOKENS] = next_token;
         for (int j = pop_id; j < MAX_TOKENS; j++) {
@@ -631,17 +634,18 @@ static int inference_decoder(RknnModelContext *ctx, float *encoder_output, Vocab
 
         rknn_outputs_release(ctx->ctx, 1, outputs);
     }
-    
+
     free(inputs[0].buf);
     free(inputs[1].buf);
-    
-    // Post process
+
+    // 將 UTF-8 字節序列轉換為字符串
+    std::string all_token_str(utf8_bytes.begin(), utf8_bytes.end());
+
+    // Post process: Whisper BPE 使用 U+0120 (Ġ) 表示詞首空格
     replace_substr(all_token_str, "\u0120", " ");
     replace_substr(all_token_str, "<|endoftext|>", "");
     replace_substr(all_token_str, "\n", "");
 
-    // Whisper 的 BPE tokenizer 直接輸出 UTF-8，無需額外解碼
-    
     result_text = all_token_str;
     LOGI("Decoder Result: '%s'", result_text.c_str());
     return 0;
