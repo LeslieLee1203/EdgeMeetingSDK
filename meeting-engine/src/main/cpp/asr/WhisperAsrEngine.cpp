@@ -145,6 +145,11 @@ struct WhisperAsrEngine::Impl {
     long totalAudioMs = 0;  // 累積的音訊總時間（毫秒）
     TranscriptCallback transcriptCallback;
 
+    // === VAD 狀態穩定性機制（方案 A 任務 3）===
+    VadState currentVadState = VadState::SILENCE;  // 當前穩定的 VAD 狀態
+    int vadStateHoldMs = 0;                        // 當前狀態持續時間（毫秒）
+    static constexpr int MIN_STATE_HOLD_MS = 120;  // 最少持續 120ms 才允許切換
+
     // === 新增：推論線程相關 ===
     struct InferenceRequest {
         std::vector<int16_t> audioData;  // 深拷貝的音頻數據
@@ -258,6 +263,10 @@ void WhisperAsrEngine::start() {
     impl_->speechDurationMs = 0;
     impl_->segmentCounter = 0;
     impl_->totalAudioMs = 0;
+
+    // 方案 A 任務 3：重置 VAD 狀態穩定性機制
+    impl_->currentVadState = VadState::SILENCE;
+    impl_->vadStateHoldMs = 0;
 
     LOGD("WhisperAsrEngine started - Buffers cleared");
 }
@@ -431,13 +440,14 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
                  impl_->speechDurationMs);
         }
 
-        // === 推論觸發判斷 ===
+        // === 推論觸發判斷 - 方案 A 優化 ===
         const size_t MIN_SAMPLES = 16000 * 2;
         const size_t MAX_SAMPLES = 16000 * 18;  // 修正：20s -> 18s (避免超過 Whisper 20s 限制)
         const size_t URGENT_SAMPLES = 16000 * 16; // 緊急閾值：16s (提前觸發避免超時)
-        const int SILENCE_THRESHOLD_MS = 800;   // 修正：500ms -> 800ms (需要更長的停頓才觸發)
-        const int URGENT_SILENCE_THRESHOLD_MS = 400; // 緊急時降低靜音要求
-        const int MIN_SPEECH_DURATION_MS = 200; // 修正：500ms -> 200ms (降低語音時長要求，避免誤刪)
+        const int SILENCE_THRESHOLD_MS = 500;   // 方案 A：800 -> 500 (提高即時性)
+        const int PAUSE_THRESHOLD_MS = 1200;    // 方案 A：新增 PAUSE 持續觸發閾值
+        const int URGENT_SILENCE_THRESHOLD_MS = 300; // 方案 A：400 -> 300 (略微降低)
+        const int MIN_SPEECH_DURATION_MS = 300; // 方案 A：200 -> 300 (提高語音時長要求，避免誤觸發)
 
         bool shouldInfer = false;
         const char* triggerReason = nullptr;
@@ -457,6 +467,15 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
             impl_->silenceDurationMs >= SILENCE_THRESHOLD_MS) {
             shouldInfer = true;
             triggerReason = (vadState == VadState::SILENCE) ? "SILENCE detected" : "PAUSE detected";
+        }
+
+        // 策略 1c：PAUSE 狀態持續觸發（方案 A 新增 - 捕捉思考停頓）
+        if (!shouldInfer &&
+            impl_->audioBuffer.size() >= MIN_SAMPLES &&
+            vadState == VadState::PAUSE &&
+            impl_->silenceDurationMs >= PAUSE_THRESHOLD_MS) {
+            shouldInfer = true;
+            triggerReason = "PAUSE sustained";
         }
 
         // 策略 2：強制截斷
@@ -899,21 +918,44 @@ WhisperAsrEngine::VadState WhisperAsrEngine::detectVadState(const int16_t* pcm, 
     }
     double zcr = static_cast<double>(zeroCrossings) / samples;
 
-    // 3. 修正後的閾值（基於實際日誌數據校準）
-    const double SILENCE_RMS_THRESHOLD = 45.0;    // 修正：50 -> 45 (更容易識別為語音)
-    const double PAUSE_RMS_THRESHOLD = 180.0;     // 修正：200 -> 180 (稍微降低，但仍避免頻繁切換)
+    // 3. 修正後的閾值（基於實際日誌數據校準 - 方案 A 優化）
+    const double SILENCE_RMS_THRESHOLD = 40.0;    // 方案 A：45 -> 40 (略微降低)
+    const double PAUSE_RMS_THRESHOLD = 300.0;     // 方案 A：180 -> 300 (大幅提高，減少 PAUSE↔SPEECH 頻繁切換)
     const double SILENCE_ZCR_THRESHOLD = 0.03;    // 保持不變
-    const double PAUSE_ZCR_THRESHOLD = 0.25;      // 修正：0.15 -> 0.25 (容忍高頻嘶嘶聲)
+    const double PAUSE_ZCR_THRESHOLD = 0.20;      // 方案 A：0.25 -> 0.20 (略微降低)
 
-    VadState state;
+    VadState rawState;
 
     // 策略優化：如果 RMS 極低，忽略 ZCR 直接判為 SILENCE (過濾高頻底噪)
     if (rms < SILENCE_RMS_THRESHOLD) {
-         state = VadState::SILENCE;
+         rawState = VadState::SILENCE;
     } else if (rms < PAUSE_RMS_THRESHOLD && zcr < PAUSE_ZCR_THRESHOLD) {
-        state = VadState::PAUSE;    // 可能是句內停頓
+        rawState = VadState::PAUSE;    // 可能是句內停頓
     } else {
-        state = VadState::SPEECH;   // 活躍語音
+        rawState = VadState::SPEECH;   // 活躍語音
+    }
+
+    // === 3.5 狀態穩定性機制（方案 A 任務 3 - 狀態去抖動）===
+    // 計算當前 chunk 的時長（毫秒）
+    int chunkDurationMs = (samples * 1000) / 16000;
+
+    VadState state;
+    if (rawState == impl_->currentVadState) {
+        // 狀態相同，累積持續時間
+        impl_->vadStateHoldMs += chunkDurationMs;
+        state = impl_->currentVadState;
+    } else {
+        // 狀態變化，檢查是否持續足夠長時間
+        if (impl_->vadStateHoldMs >= Impl::MIN_STATE_HOLD_MS) {
+            // 允許切換到新狀態
+            impl_->currentVadState = rawState;
+            impl_->vadStateHoldMs = chunkDurationMs;
+            state = rawState;
+        } else {
+            // 持續時間不足，保持舊狀態（忽略瞬間變化）
+            impl_->vadStateHoldMs += chunkDurationMs;
+            state = impl_->currentVadState;
+        }
     }
 
     // 4. 增強日誌機制（除錯與監控）
