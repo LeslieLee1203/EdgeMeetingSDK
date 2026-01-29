@@ -433,15 +433,26 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
 
         // === 推論觸發判斷 ===
         const size_t MIN_SAMPLES = 16000 * 2;
-        const size_t MAX_SAMPLES = 16000 * 20;
-        const int SILENCE_THRESHOLD_MS = 500;
+        const size_t MAX_SAMPLES = 16000 * 18;  // 修正：20s -> 18s (避免超過 Whisper 20s 限制)
+        const size_t URGENT_SAMPLES = 16000 * 16; // 緊急閾值：16s (提前觸發避免超時)
+        const int SILENCE_THRESHOLD_MS = 800;   // 修正：500ms -> 800ms (需要更長的停頓才觸發)
+        const int URGENT_SILENCE_THRESHOLD_MS = 400; // 緊急時降低靜音要求
         const int MIN_SPEECH_DURATION_MS = 500; // 最小有效語音長度
 
         bool shouldInfer = false;
         const char* triggerReason = nullptr;
 
-        // 策略 1：最小時長 + 非語音檢測
-        if (impl_->audioBuffer.size() >= MIN_SAMPLES &&
+        // 策略 1a：緊急觸發（接近限制時降低靜音要求）
+        if (impl_->audioBuffer.size() >= URGENT_SAMPLES &&
+            (vadState == VadState::SILENCE || vadState == VadState::PAUSE) &&
+            impl_->silenceDurationMs >= URGENT_SILENCE_THRESHOLD_MS) {
+            shouldInfer = true;
+            triggerReason = "Urgent trigger (near limit)";
+        }
+
+        // 策略 1b：正常觸發（最小時長 + 充分停頓）
+        if (!shouldInfer &&
+            impl_->audioBuffer.size() >= MIN_SAMPLES &&
             (vadState == VadState::SILENCE || vadState == VadState::PAUSE) &&
             impl_->silenceDurationMs >= SILENCE_THRESHOLD_MS) {
             shouldInfer = true;
@@ -889,8 +900,8 @@ WhisperAsrEngine::VadState WhisperAsrEngine::detectVadState(const int16_t* pcm, 
     double zcr = static_cast<double>(zeroCrossings) / samples;
 
     // 3. 修正後的閾值（基於實際日誌數據校準）
-    const double SILENCE_RMS_THRESHOLD = 40.0;    // 背景噪音：RMS < 40
-    const double PAUSE_RMS_THRESHOLD = 150.0;     // 修正：80 -> 150 (容忍較大底噪)
+    const double SILENCE_RMS_THRESHOLD = 50.0;    // 修正：40 -> 50 (減少誤判)
+    const double PAUSE_RMS_THRESHOLD = 200.0;     // 修正：150 -> 200 (減少頻繁切換)
     const double SILENCE_ZCR_THRESHOLD = 0.03;    // 保持不變
     const double PAUSE_ZCR_THRESHOLD = 0.25;      // 修正：0.15 -> 0.25 (容忍高頻嘶嘶聲)
 
