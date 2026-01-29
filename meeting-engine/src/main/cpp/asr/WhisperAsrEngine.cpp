@@ -148,7 +148,7 @@ struct WhisperAsrEngine::Impl {
     // === VAD 狀態穩定性機制（方案 A 任務 3）===
     VadState currentVadState = VadState::SILENCE;  // 當前穩定的 VAD 狀態
     int vadStateHoldMs = 0;                        // 當前狀態持續時間（毫秒）
-    static constexpr int MIN_STATE_HOLD_MS = 120;  // 最少持續 120ms 才允許切換
+    static constexpr int MIN_STATE_HOLD_MS = 200;  // 方案 A-Fixed: 120ms -> 200ms (增強去抖動)
 
     // === 新增：推論線程相關 ===
     struct InferenceRequest {
@@ -440,14 +440,14 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
                  impl_->speechDurationMs);
         }
 
-        // === 推論觸發判斷 - 方案 A 優化 ===
-        const size_t MIN_SAMPLES = 16000 * 2;
+        // === 推論觸發判斷 - 方案 A-Fixed 優化 ===
+        const size_t MIN_SAMPLES = 16000 * 3;   // 方案 A-Fixed: 2s -> 3s (提高最低總音訊長度)
         const size_t MAX_SAMPLES = 16000 * 18;  // 修正：20s -> 18s (避免超過 Whisper 20s 限制)
         const size_t URGENT_SAMPLES = 16000 * 16; // 緊急閾值：16s (提前觸發避免超時)
-        const int SILENCE_THRESHOLD_MS = 500;   // 方案 A：800 -> 500 (提高即時性)
-        const int PAUSE_THRESHOLD_MS = 1200;    // 方案 A：新增 PAUSE 持續觸發閾值
-        const int URGENT_SILENCE_THRESHOLD_MS = 300; // 方案 A：400 -> 300 (略微降低)
-        const int MIN_SPEECH_DURATION_MS = 300; // 方案 A：200 -> 300 (提高語音時長要求，避免誤觸發)
+        const int SILENCE_THRESHOLD_MS = 800;   // 方案 A-Fixed: 500 -> 800 (回到穩定值，平衡即時性與準確度)
+        const int PAUSE_THRESHOLD_MS = 1500;    // 方案 A-Fixed: 1200 -> 1500 (略微增加)
+        const int URGENT_SILENCE_THRESHOLD_MS = 400; // 方案 A-Fixed: 300 -> 400 (回退)
+        const int MIN_SPEECH_DURATION_MS = 2000; // 方案 A-Fixed: 300 -> 2000 (**關鍵修改**：確保足夠語音上下文)
 
         bool shouldInfer = false;
         const char* triggerReason = nullptr;
@@ -486,13 +486,18 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
 
         if (shouldInfer && !impl_->isInferring.load(std::memory_order_acquire)) {
             // 關鍵修正：檢查是否有足夠的語音內容 (防止幻覺)
-            // 如果語音時長不足 0.5s，直接丟棄 Buffer
+            // 方案 A-Fixed：語音時長必須 >= 2.0s，確保 Whisper 獲得足夠上下文
             if (impl_->speechDurationMs < MIN_SPEECH_DURATION_MS) {
-                 LOGW("Inference SKIPPED: Insufficient speech duration (%dms < %dms). Reason: %s", 
-                      impl_->speechDurationMs, MIN_SPEECH_DURATION_MS, triggerReason);
-                 impl_->audioBuffer.clear();
-                 impl_->silenceDurationMs = 0;
-                 impl_->speechDurationMs = 0;
+                 LOGW("Inference SKIPPED: Insufficient speech duration (%dms < %dms, Buffer=%.1fs). Reason: %s",
+                      impl_->speechDurationMs, MIN_SPEECH_DURATION_MS,
+                      impl_->audioBuffer.size() / 16000.0, triggerReason);
+
+                 // 如果 Buffer 太大但語音太少，可能是長時間靜音，清空重置
+                 if (impl_->audioBuffer.size() > 16000 * 10) {  // 超過 10 秒
+                     impl_->audioBuffer.clear();
+                     impl_->silenceDurationMs = 0;
+                     impl_->speechDurationMs = 0;
+                 }
                  return;
             }
 
@@ -918,11 +923,11 @@ WhisperAsrEngine::VadState WhisperAsrEngine::detectVadState(const int16_t* pcm, 
     }
     double zcr = static_cast<double>(zeroCrossings) / samples;
 
-    // 3. 修正後的閾值（基於實際日誌數據校準 - 方案 A 優化）
-    const double SILENCE_RMS_THRESHOLD = 40.0;    // 方案 A：45 -> 40 (略微降低)
-    const double PAUSE_RMS_THRESHOLD = 300.0;     // 方案 A：180 -> 300 (大幅提高，減少 PAUSE↔SPEECH 頻繁切換)
+    // 3. 修正後的閾值（基於實際日誌數據校準 - 方案 A-Fixed 優化）
+    const double SILENCE_RMS_THRESHOLD = 40.0;    // 保持不變
+    const double PAUSE_RMS_THRESHOLD = 220.0;     // 方案 A-Fixed: 300 -> 220 (降低，避免真實語音被誤判為 PAUSE)
     const double SILENCE_ZCR_THRESHOLD = 0.03;    // 保持不變
-    const double PAUSE_ZCR_THRESHOLD = 0.20;      // 方案 A：0.25 -> 0.20 (略微降低)
+    const double PAUSE_ZCR_THRESHOLD = 0.20;      // 保持不變
 
     VadState rawState;
 
