@@ -437,7 +437,7 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
         const size_t URGENT_SAMPLES = 16000 * 16; // 緊急閾值：16s (提前觸發避免超時)
         const int SILENCE_THRESHOLD_MS = 800;   // 修正：500ms -> 800ms (需要更長的停頓才觸發)
         const int URGENT_SILENCE_THRESHOLD_MS = 400; // 緊急時降低靜音要求
-        const int MIN_SPEECH_DURATION_MS = 500; // 最小有效語音長度
+        const int MIN_SPEECH_DURATION_MS = 200; // 修正：500ms -> 200ms (降低語音時長要求，避免誤刪)
 
         bool shouldInfer = false;
         const char* triggerReason = nullptr;
@@ -826,8 +826,8 @@ bool WhisperAsrEngine::shouldSkipInference(const int16_t* pcm, size_t samples) {
     // Production 版修正：降低閾值以匹配實際錄音音量
     // 根據日誌分析，真實語音的 RMS 約在 20-200 範圍
     // 因此閾值應設定在 50 以下，確保不會誤殺真實語音
-    const double ENERGY_THRESHOLD = 30.0;  // 修正：從 1000.0 大幅降低至 30.0
-    const double SILENCE_RATIO_THRESHOLD = 0.95;  // 提高至 95%，更嚴格的靜音判定
+    const double ENERGY_THRESHOLD = 25.0;  // 修正：30 -> 25 (進一步降低，避免誤刪語音)
+    const double SILENCE_RATIO_THRESHOLD = 0.90;  // 修正：0.95 -> 0.90 (降低靜音比例要求)
 
     size_t totalWindows = samples / WINDOW_SIZE;
     if (totalWindows == 0) return false;
@@ -900,8 +900,8 @@ WhisperAsrEngine::VadState WhisperAsrEngine::detectVadState(const int16_t* pcm, 
     double zcr = static_cast<double>(zeroCrossings) / samples;
 
     // 3. 修正後的閾值（基於實際日誌數據校準）
-    const double SILENCE_RMS_THRESHOLD = 50.0;    // 修正：40 -> 50 (減少誤判)
-    const double PAUSE_RMS_THRESHOLD = 200.0;     // 修正：150 -> 200 (減少頻繁切換)
+    const double SILENCE_RMS_THRESHOLD = 45.0;    // 修正：50 -> 45 (更容易識別為語音)
+    const double PAUSE_RMS_THRESHOLD = 180.0;     // 修正：200 -> 180 (稍微降低，但仍避免頻繁切換)
     const double SILENCE_ZCR_THRESHOLD = 0.03;    // 保持不變
     const double PAUSE_ZCR_THRESHOLD = 0.25;      // 修正：0.15 -> 0.25 (容忍高頻嘶嘶聲)
 
