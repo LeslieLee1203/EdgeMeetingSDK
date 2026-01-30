@@ -51,7 +51,7 @@ private:
     std::string runInference(const int16_t* pcmData, size_t samples);
     bool detectSilence(const int16_t* pcm, size_t samples);
     bool shouldSkipInference(const int16_t* pcm, size_t samples);
-    void emitTranscript(const std::string& text, long startMs, long endMs);
+    void emitTranscript(const std::string& text, long startMs, long endMs, bool isFinal = true);  // 方案 B: 添加 isFinal 參數
 
     // VAD 狀態檢測（簡化版）
     enum class VadState {

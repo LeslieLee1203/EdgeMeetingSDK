@@ -155,6 +155,7 @@ struct WhisperAsrEngine::Impl {
         std::vector<int16_t> audioData;  // 深拷貝的音頻數據
         long startMs;
         long endMs;
+        bool isFinal;  // 方案 B：標記是否為最終推論（true=最終, false=中間）
     };
 
     std::queue<InferenceRequest> inferenceQueue;
@@ -163,6 +164,14 @@ struct WhisperAsrEngine::Impl {
     std::thread inferenceThread;
     std::atomic<bool> shouldStopThread{false};
     std::atomic<bool> isInferring{false}; // 防止重複推論
+
+    // === 方案 B：漸進式推論相關變數 ===
+    long lastIntermediateInferenceMs = 0;       // 上次中間推論的時間點
+    static constexpr int INTERMEDIATE_INTERVAL_MS = 5000;  // 中間推論間隔：5 秒
+
+    // === 品質感知：追蹤最佳 INTERMEDIATE 結果 ===
+    std::string lastBestIntermediateText;      // 最佳 INTERMEDIATE 文字
+    size_t lastBestIntermediateTextLen = 0;    // 最佳 INTERMEDIATE 文字長度（bytes）
 
     ~Impl() {
         if (mel_filters) free(mel_filters);
@@ -268,6 +277,9 @@ void WhisperAsrEngine::start() {
     impl_->currentVadState = VadState::SILENCE;
     impl_->vadStateHoldMs = 0;
 
+    // 方案 B：重置漸進式推論計時器
+    impl_->lastIntermediateInferenceMs = 0;
+
     LOGD("WhisperAsrEngine started - Buffers cleared");
 }
 
@@ -370,19 +382,58 @@ void inferenceThreadFunc(WhisperAsrEngine::Impl* impl, WhisperAsrEngine* engine)
         impl->isInferring.store(true, std::memory_order_release);
 
         auto t0 = std::chrono::steady_clock::now();
-        LOGD("Inference thread: Processing %zu samples [%ld-%ld ms]",
-             req.audioData.size(), req.startMs, req.endMs);
+        const char* typeStr = req.isFinal ? "FINAL" : "INTERMEDIATE";
 
-        std::string text = engine->runInference(req.audioData.data(), req.audioData.size());
+        // 方案 B-Fixed：推論前最終保護（防止隊列中的舊請求使用過長音訊）
+        // 問題：Buffer overflow 修剪發生在 pushAudio，但推論請求已在隊列中
+        // 解決：推論前檢查，如果音訊 > 12s，只處理最後 12s
+        const size_t MAX_INFERENCE_SAMPLES = 16000 * 12;  // 12 秒上限
+        const int16_t* audioPtr = req.audioData.data();
+        size_t audioSamples = req.audioData.size();
+
+        if (audioSamples > MAX_INFERENCE_SAMPLES) {
+            // 只取最後 12 秒（避免 Whisper 幻覺）
+            audioPtr = req.audioData.data() + (audioSamples - MAX_INFERENCE_SAMPLES);
+            audioSamples = MAX_INFERENCE_SAMPLES;
+            LOGW("Inference request too long (%.1fs), trimmed to last 12s",
+                 req.audioData.size() / 16000.0);
+        }
+
+        LOGD("Inference thread: Processing %zu samples [%ld-%ld ms] (%s)",
+             audioSamples, req.startMs, req.endMs, typeStr);
+
+        std::string text = engine->runInference(audioPtr, audioSamples);
 
         auto t1 = std::chrono::steady_clock::now();
         auto inferenceMs = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
 
         if (!text.empty()) {
-            engine->emitTranscript(text, req.startMs, req.endMs);
-            LOGI("Transcript emitted (%lld ms): '%s'", inferenceMs, text.c_str());
+            if (!req.isFinal) {
+                // INTERMEDIATE：記錄最佳結果（只保留最長的）
+                if (text.length() > impl->lastBestIntermediateTextLen) {
+                    impl->lastBestIntermediateText = text;
+                    impl->lastBestIntermediateTextLen = text.length();
+                    LOGD("Updated best INTERMEDIATE text (%zu bytes)", text.length());
+                }
+            } else {
+                // FINAL：品質檢查
+                if (impl->lastBestIntermediateTextLen > 0 &&
+                    text.length() < impl->lastBestIntermediateTextLen * 7 / 10) {
+                    // Decoder 截斷！使用最佳 INTERMEDIATE 替代
+                    LOGW("⚠️  FINAL decoder truncated! FINAL=%zu bytes vs best INTER=%zu bytes. "
+                         "Using INTERMEDIATE text as FINAL.",
+                         text.length(), impl->lastBestIntermediateTextLen);
+                    text = impl->lastBestIntermediateText;
+                }
+                // FINAL 後重置追蹤
+                impl->lastBestIntermediateText.clear();
+                impl->lastBestIntermediateTextLen = 0;
+            }
+
+            engine->emitTranscript(text, req.startMs, req.endMs, req.isFinal);
+            LOGI("Transcript emitted [%s] (%lld ms): '%s'", typeStr, inferenceMs, text.c_str());
         } else {
-            LOGD("Inference returned empty text (%lld ms)", inferenceMs);
+            LOGD("Inference returned empty text [%s] (%lld ms)", typeStr, inferenceMs);
         }
 
         impl->isInferring.store(false, std::memory_order_release);
@@ -402,6 +453,23 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
 
         impl_->audioBuffer.insert(impl_->audioBuffer.end(), pcm, pcm + samples);
         impl_->totalAudioMs += (samples * 1000) / 16000;
+
+        // 方案 B-Fixed：Buffer 硬上限保護（防止推論速度跟不上時無限累積）
+        // 問題：當 RTF ≈ 0.4-0.7 時，推論耗時接近實時，Buffer 會在推論期間持續增長
+        // 解決：設置 14s 硬上限（配合 MAX_SAMPLES=12s），超過時丟棄最舊的音訊，保留最新的 11s
+        const size_t HARD_LIMIT_SAMPLES = 16000 * 14;  // 14 秒硬上限（配合 MAX_SAMPLES=12s）
+        const size_t KEEP_SAMPLES = 16000 * 11;        // 保留 11 秒（留 1s 緩衝）
+
+        if (impl_->audioBuffer.size() > HARD_LIMIT_SAMPLES) {
+            size_t discarded_samples = impl_->audioBuffer.size() - KEEP_SAMPLES;
+            impl_->audioBuffer.erase(
+                impl_->audioBuffer.begin(),
+                impl_->audioBuffer.begin() + discarded_samples
+            );
+            LOGW("⚠️  Buffer overflow! Trimmed %.1fs → 13s (discarded oldest %.1fs)",
+                 (impl_->audioBuffer.size() + discarded_samples) / 16000.0,
+                 discarded_samples / 16000.0);
+        }
 
         VadState vadState = detectVadState(pcm, samples);
 
@@ -440,25 +508,42 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
                  impl_->speechDurationMs);
         }
 
-        // === 推論觸發判斷 - 方案 A-Fixed 優化 ===
-        const size_t MIN_SAMPLES = 16000 * 3;   // 方案 A-Fixed: 2s -> 3s (提高最低總音訊長度)
-        const size_t MAX_SAMPLES = 16000 * 18;  // 修正：20s -> 18s (避免超過 Whisper 20s 限制)
-        const size_t URGENT_SAMPLES = 16000 * 16; // 緊急閾值：16s (提前觸發避免超時)
-        const int SILENCE_THRESHOLD_MS = 800;   // 方案 A-Fixed: 500 -> 800 (回到穩定值，平衡即時性與準確度)
-        const int PAUSE_THRESHOLD_MS = 1500;    // 方案 A-Fixed: 1200 -> 1500 (略微增加)
-        const int URGENT_SILENCE_THRESHOLD_MS = 400; // 方案 A-Fixed: 300 -> 400 (回退)
-        const int MIN_SPEECH_DURATION_MS = 2000; // 方案 A-Fixed: 300 -> 2000 (**關鍵修改**：確保足夠語音上下文)
+        // === 推論觸發判斷 - 方案 B：雙軌推論機制 ===
+        const size_t MIN_SAMPLES = 16000 * 3;   // 最低總音訊長度：3 秒
+        const size_t MAX_SAMPLES = 16000 * 12;  // 最大緩衝：12 秒（降低 decoder 截斷機率）
+        const int SILENCE_THRESHOLD_MS = 800;   // 靜音觸發閾值
+        const int PAUSE_THRESHOLD_MS = 1500;    // PAUSE 持續觸發閾值
+        const int MIN_SPEECH_DURATION_MS = 2000; // 最低語音時長：2 秒
+
+        // 已移除 URGENT 機制（窗口期太短，效果與正常觸發重疊）
+        // const size_t URGENT_SAMPLES = 16000 * 13;
+        // const int URGENT_SILENCE_THRESHOLD_MS = 400;
 
         bool shouldInfer = false;
+        bool isFinalInference = true;  // 方案 B：默認為最終推論
         const char* triggerReason = nullptr;
 
-        // 策略 1a：緊急觸發（接近限制時降低靜音要求）
-        if (impl_->audioBuffer.size() >= URGENT_SAMPLES &&
-            (vadState == VadState::SILENCE || vadState == VadState::PAUSE) &&
-            impl_->silenceDurationMs >= URGENT_SILENCE_THRESHOLD_MS) {
+        // === 方案 B 策略 0：定時中間推論（快速軌）===
+        // 優先檢查，提供即時反饋（每 5 秒）
+        long timeSinceLastIntermediate = impl_->totalAudioMs - impl_->lastIntermediateInferenceMs;
+        if (!impl_->isInferring.load(std::memory_order_acquire) &&
+            timeSinceLastIntermediate >= Impl::INTERMEDIATE_INTERVAL_MS &&
+            impl_->audioBuffer.size() >= MIN_SAMPLES &&
+            impl_->speechDurationMs >= MIN_SPEECH_DURATION_MS) {
             shouldInfer = true;
-            triggerReason = "Urgent trigger (near limit)";
+            isFinalInference = false;  // 中間推論
+            triggerReason = "Intermediate (5s timer)";
+            LOGI("Intermediate inference triggered (timeSince=%.1fs, Buffer=%.1fs, Speech=%dms)",
+                 timeSinceLastIntermediate / 1000.0,
+                 impl_->audioBuffer.size() / 16000.0,
+                 impl_->speechDurationMs);
         }
+
+        // === 方案 B 策略 1-2：最終推論（準確軌）===
+        // 在自然停頓或達到限制時觸發，提供高準確度轉錄
+
+        // 策略 1a：已移除 URGENT 機制（窗口期太短，與策略 1b/1c 重疊）
+        // 理由：MAX_SAMPLES = 15s 已經足夠短，策略 1b/1c 足以捕捉自然停頓
 
         // 策略 1b：正常觸發（最小時長 + 充分停頓）
         if (!shouldInfer &&
@@ -466,21 +551,24 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
             (vadState == VadState::SILENCE || vadState == VadState::PAUSE) &&
             impl_->silenceDurationMs >= SILENCE_THRESHOLD_MS) {
             shouldInfer = true;
+            isFinalInference = true;  // 最終推論
             triggerReason = (vadState == VadState::SILENCE) ? "SILENCE detected" : "PAUSE detected";
         }
 
-        // 策略 1c：PAUSE 狀態持續觸發（方案 A 新增 - 捕捉思考停頓）
+        // 策略 1c：PAUSE 狀態持續觸發（捕捉思考停頓）
         if (!shouldInfer &&
             impl_->audioBuffer.size() >= MIN_SAMPLES &&
             vadState == VadState::PAUSE &&
             impl_->silenceDurationMs >= PAUSE_THRESHOLD_MS) {
             shouldInfer = true;
+            isFinalInference = true;  // 最終推論
             triggerReason = "PAUSE sustained";
         }
 
         // 策略 2：強制截斷
         if (!shouldInfer && impl_->audioBuffer.size() >= MAX_SAMPLES) {
             shouldInfer = true;
+            isFinalInference = true;  // 最終推論
             triggerReason = "Max buffer reached";
         }
 
@@ -514,23 +602,40 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
             }
 
             // 觸發推論（詳細日誌）
-            LOGI("Inference TRIGGERED: %s (Buffer=%.1fs, Speech=%dms, NonSpeech=%dms)",
-                 triggerReason,
+            const char* typeStr = isFinalInference ? "FINAL" : "INTERMEDIATE";
+            LOGI("Inference TRIGGERED [%s]: %s (Buffer=%.1fs, Speech=%dms, NonSpeech=%dms)",
+                 typeStr, triggerReason,
                  impl_->audioBuffer.size() / 16000.0,
                  impl_->speechDurationMs,
                  impl_->silenceDurationMs);
 
             // 準備推論請求
             Impl::InferenceRequest req;
-            req.audioData = impl_->audioBuffer;  // std::vector 深拷貝
+            req.audioData = impl_->audioBuffer;  // std::vector 深拷貝（始終使用完整 Buffer）
+
+            // 方案 B-Fixed：依賴 Buffer 硬上限保護（20s），不再截取中間推論音訊
+            // 原因：截取音訊會導致 Whisper 失去上下文，FINAL 結果不完整
+            // 解決：接受中間推論可能較慢（RTF 0.4-0.5），但保證內容完整性
+
             long bufferDurationMs = (impl_->audioBuffer.size() * 1000) / 16000;
             req.startMs = impl_->totalAudioMs - bufferDurationMs;
             req.endMs = impl_->totalAudioMs;
+            req.isFinal = isFinalInference;  // 方案 B：標記推論類型
 
-            // 立即清空當前 buffer
-            impl_->audioBuffer.clear();
-            impl_->silenceDurationMs = 0;
-            impl_->speechDurationMs = 0;
+            // 方案 B：根據推論類型決定是否清空 Buffer
+            if (isFinalInference) {
+                // 最終推論：清空 Buffer（自然分段）
+                impl_->audioBuffer.clear();
+                impl_->silenceDurationMs = 0;
+                impl_->speechDurationMs = 0;
+                impl_->lastIntermediateInferenceMs = impl_->totalAudioMs;  // 重置中間推論計時器
+                LOGD("Buffer cleared after FINAL inference");
+            } else {
+                // 中間推論：保留 Buffer（持續累積）
+                impl_->lastIntermediateInferenceMs = impl_->totalAudioMs;
+                LOGD("Buffer retained after INTERMEDIATE inference (size=%.1fs)",
+                     impl_->audioBuffer.size() / 16000.0);
+            }
 
             // 推送到推論隊列（快速操作）
             {
@@ -887,12 +992,12 @@ bool WhisperAsrEngine::shouldSkipInference(const int16_t* pcm, size_t samples) {
     return shouldSkip;
 }
 
-void WhisperAsrEngine::emitTranscript(const std::string& text, long startMs, long endMs) {
+void WhisperAsrEngine::emitTranscript(const std::string& text, long startMs, long endMs, bool isFinal) {
     impl_->segmentCounter++;
     std::string segmentId = "seg-" + std::to_string(impl_->segmentCounter);
     if (impl_->transcriptCallback) {
-        // Phase 4: 傳遞語言代碼（從 language_ 成員變數取得）
-        impl_->transcriptCallback(segmentId, text, "User", true, startMs, endMs, language_);
+        // 方案 B: 傳遞 isFinal 標誌（true=最終推論, false=中間推論）
+        impl_->transcriptCallback(segmentId, text, "User", isFinal, startMs, endMs, language_);
     }
 }
 
