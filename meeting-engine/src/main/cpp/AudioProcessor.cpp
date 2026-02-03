@@ -2,11 +2,9 @@
 // Created by Leslie Lee 李俊德 (奧圖碼) on 2026/1/15.
 //
 #include "AudioProcessor.h"
-#include <android/log.h>
 
-#define TAG "AudioProcessor"
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+#define LOG_TAG "AudioProcessor"
+#include "Log.h"
 
 // 供測試使用：判斷是否可啟動處理器
 bool shouldStartProcessor(bool hasJvm, bool hasCallback) {

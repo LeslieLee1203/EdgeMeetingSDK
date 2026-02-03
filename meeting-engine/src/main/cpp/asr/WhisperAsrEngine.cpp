@@ -4,7 +4,6 @@
 #include "WhisperAsrEngine.h"
 #include "WhisperUtils.h"
 #include "rknn_api.h"
-#include <android/log.h>
 #include <cmath>
 #include <fstream>
 #include <vector>
@@ -17,10 +16,7 @@
 #include <chrono>
 
 #define LOG_TAG "WhisperAsrEngine"
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
-#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
+#include "../Log.h"
 
 // 前向聲明：推論線程函數
 void inferenceThreadFunc(WhisperAsrEngine::Impl* impl, WhisperAsrEngine* engine);
@@ -787,7 +783,7 @@ static int inference_decoder(RknnModelContext *ctx, float *encoder_output, Vocab
     replace_substr(all_token_str, "\n", "");
 
     result_text = all_token_str;
-    LOGI("Decoder Result: '%s'", result_text.c_str());
+    LOG_RESULT("Decoder Result: '%s'", result_text.c_str());
     return 0;
 }
 

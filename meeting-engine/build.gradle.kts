@@ -70,12 +70,28 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Debug build: 啟用所有開發用 log
+            externalNativeBuild {
+                cmake {
+                    // 不定義 NDEBUG，Log.h 中的 LOGD/LOGI/LOGW 會正常輸出
+                    cppFlags("-O0", "-g")
+                }
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Release build: 移除開發用 log，只保留 LOGE 和 LOG_RESULT
+            externalNativeBuild {
+                cmake {
+                    // 定義 NDEBUG 讓 Log.h 中的 LOGD/LOGI/LOGW 變成空操作
+                    cppFlags("-DNDEBUG", "-O3")
+                }
+            }
         }
     }
     compileOptions {

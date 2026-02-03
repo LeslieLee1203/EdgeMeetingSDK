@@ -7,12 +7,10 @@
 
 #include <oboe/Oboe.h>
 #include <memory>
-#include <android/log.h>
 #include "RingBuffer.h"
 
-#define MODULE_TAG "EdgeAudio"
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, MODULE_TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, MODULE_TAG, __VA_ARGS__)
+#define LOG_TAG "EdgeAudio"
+#include "Log.h"
 
 class AudioRecorder : public oboe::AudioStreamCallback {
 public:

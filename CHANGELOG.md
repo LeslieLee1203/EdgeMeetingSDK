@@ -1,5 +1,37 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-02-03] - Release Build 移除開發用 Log
+
+### 效能優化
+- 建立統一的 `Log.h` header，集中管理所有 C++ log 定義
+- Release build 時自動移除開發用 log（LOGD/LOGI/LOGW），只保留：
+  - `LOGE`：錯誤訊息（永遠啟用）
+  - `LOG_RESULT`：重要結果輸出，如 Decoder Result（永遠啟用）
+- 透過 CMake 的 `-DNDEBUG` flag 控制 log 啟用/停用
+
+### 變更檔案
+- 新增 `meeting-engine/src/main/cpp/Log.h`
+- 修改 `meeting-engine/build.gradle.kts`：新增 debug/release buildType 的 CMake 設定
+- 修改 `native-lib.cpp`、`AudioRecorder.h`、`AudioProcessor.cpp`、`WhisperAsrEngine.cpp`、`WhisperUtils.cpp`：改用統一的 `Log.h`
+
+### 說明
+- Debug build (`-O0 -g`)：所有 log 正常輸出
+- Release build (`-DNDEBUG -O3`)：只輸出錯誤和 Decoder Result
+
+---
+
+## [2026-02-03] - 修正 Release Build 簽名配置
+
+### 修正
+- `app/build.gradle.kts` 新增 `signingConfigs` 區塊，讓 release build 使用 debug keystore 簽署
+- 解決 Android Studio 錯誤：「The apk for your currently selected variant cannot be signed」
+
+### 說明
+- 目前使用 debug keystore 作為開發測試用途
+- 正式發布時需替換為正式的 release keystore
+
+---
+
 ## [2026-01-30] - 新增專案架構文件
 
 ### 文件

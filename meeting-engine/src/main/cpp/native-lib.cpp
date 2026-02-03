@@ -3,11 +3,13 @@
 #include <jni.h>
 #include <string>
 #include <vector>
-#include <android/log.h>
 #include "AudioRecorder.h"
 #include "AudioProcessor.h"
 #include "asr/AsrEngine.h"
 #include "asr/WhisperAsrEngine.h"
+
+#define LOG_TAG "native-lib"
+#include "Log.h"
 
 // 全域指標 (MVP 階段暫時做法)
 static std::unique_ptr<AudioRecorder> gRecorder = nullptr;
@@ -15,10 +17,6 @@ static std::unique_ptr<AudioProcessor> gProcessor = nullptr;
 static std::unique_ptr<AsrEngine> gAsrEngine = nullptr;  // Phase 3: ASR 引擎
 static JavaVM* gJavaVM = nullptr; // 儲存 JVM 指標
 static jobject gCallbackObj = nullptr;  // T041: 全域 callback 物件（用於 ASR 回調）
-
-#define LOG_TAG "native-lib"
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 // 釋放順序（測試可驗證）
 std::vector<std::string> buildReleaseOrderLabels(

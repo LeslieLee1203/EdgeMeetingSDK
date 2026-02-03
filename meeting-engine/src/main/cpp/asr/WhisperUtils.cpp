@@ -7,11 +7,9 @@
 #include <vector>
 #include <iostream>
 #include "fftw3.h"
-#include <android/log.h>
 
 #define LOG_TAG "WhisperUtils"
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
-#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
+#include "../Log.h"
 
 // 實作 transpose
 static void transpose(fftwf_complex *input, int input_rows, int input_cols, fftwf_complex *output) {
