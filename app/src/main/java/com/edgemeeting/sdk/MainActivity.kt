@@ -44,7 +44,10 @@ import com.edgemeeting.core.model.MeetingState
 import com.edgemeeting.engine.ModelAssetManager
 import com.edgemeeting.engine.RkMeetingSession
 import com.edgemeeting.engine.bridge.JniEngineBridge
+import com.edgemeeting.sdk.model.TranslatedSegment
+import com.edgemeeting.sdk.translation.TranslationService
 import com.edgemeeting.sdk.ui.theme.EdgeMeetingSDKTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -52,6 +55,9 @@ class MainActivity : ComponentActivity() {
     // 在真實 App 中這通常由 Hilt/Koin 負責，但 Walking Skeleton 階段直接 new 最快
     // Phase 4: 語言設定由 UI 控制，透過 createSession 建立
     private var session: MeetingSession? = null
+
+    // Phase 5: 翻譯服務（MediaPipe LLM Gemma-3 1B）
+    private var translationService: TranslationService? = null
 
     private fun createSession(languageSetting: LanguageSetting): MeetingSession {
         val bridge = JniEngineBridge() // 載入 .so 檔
@@ -66,23 +72,38 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // 初始化翻譯服務
+        translationService = TranslationService(this)
+        Log.d("App", "TranslationService initialized, available: ${translationService?.isAvailable()}")
+
         setContent {
             EdgeMeetingSDKTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     // Phase 4: 傳入 createSession 函數供 UI 建立 session
+                    // Phase 5: 傳入 translationService 供翻譯功能使用
                     MeetingScreen(
                         createSession = ::createSession,
+                        translationService = translationService,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
             }
         }
     }
+
+    override fun onDestroy() {
+        // 釋放翻譯服務資源
+        translationService?.release()
+        translationService = null
+        Log.d("App", "TranslationService released")
+        super.onDestroy()
+    }
 }
 
 @Composable
 fun MeetingScreen(
     createSession: (LanguageSetting) -> MeetingSession,
+    translationService: TranslationService?,
     modifier: Modifier = Modifier
 ) {
     // Phase 4: 語言設定狀態（預設 English）
@@ -98,9 +119,12 @@ fun MeetingScreen(
     // 當 Session 狀態改變時，這裡會自動 Recomposition
     val meetingState by (session?.state ?: return).collectAsState()
 
-    // 用於發動非同步操作 (雖然 prepare 目前是同步的，但好習慣還是要有)
+    // 用於發動非同步操作
     val scope = rememberCoroutineScope()
-    val transcriptItems = remember { mutableStateListOf<com.edgemeeting.core.model.TranscriptSegment>() }
+    // Phase 5: 改用 TranslatedSegment 管理字幕與翻譯狀態
+    val transcriptItems = remember { mutableStateListOf<TranslatedSegment>() }
+    // 追蹤已發送翻譯請求的 segment ID，避免重複翻譯
+    val translatingIds = remember { mutableStateOf(setOf<String>()) }
 
     // --- 權限處理邏輯 ---
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -118,21 +142,62 @@ fun MeetingScreen(
         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
 
-    // 收集字幕流，智能合併中間結果與最終結果（方案 B - 修正版）
+    // 收集字幕流，智能合併中間結果與最終結果
+    // Phase 5: 加入翻譯觸發邏輯（只翻譯 isFinal=true 的結果）
     LaunchedEffect(session) {
         try {
             session?.transcriptFlow?.collect { segments ->
                 segments.forEach { newSegment ->
-                    // **關鍵修正**：無論是 FINAL 還是 INTERMEDIATE，都先刪除被覆蓋的舊結果
-                    val removedCount = transcriptItems.removeAll { existingSegment ->
-                        shouldReplaceSegment(existingSegment, newSegment)
+                    // 先刪除被覆蓋的舊結果
+                    val removedCount = transcriptItems.removeAll { existingItem ->
+                        shouldReplaceSegment(existingItem.original, newSegment)
                     }
 
-                    // 然後添加新結果
-                    transcriptItems.add(newSegment)
+                    // 建立新的 TranslatedSegment
+                    val translatedSegment = TranslatedSegment(original = newSegment)
+                    transcriptItems.add(translatedSegment)
 
                     val typeStr = if (newSegment.isFinal) "FINAL" else "INTERMEDIATE"
                     Log.d("App", "Added $typeStr segment (removed $removedCount old): ${newSegment.text.take(30)}...")
+
+                    // Phase 5: 觸發翻譯（只翻譯 final 結果，且未曾翻譯過）
+                    if (newSegment.isFinal &&
+                        translationService?.isAvailable() == true &&
+                        !translatingIds.value.contains(newSegment.id)
+                    ) {
+                        // 標記為翻譯中
+                        translatingIds.value = translatingIds.value + newSegment.id
+                        val index = transcriptItems.indexOfFirst { it.id == newSegment.id }
+                        if (index >= 0) {
+                            transcriptItems[index] = transcriptItems[index].copy(isTranslating = true)
+                        }
+
+                        // 非同步執行翻譯
+                        scope.launch {
+                            Log.d("App", "Starting translation for: ${newSegment.text.take(30)}...")
+                            translationService.translate(newSegment.text)
+                                .onSuccess { translation ->
+                                    Log.d("App", "Translation success: ${translation.take(30)}...")
+                                    val idx = transcriptItems.indexOfFirst { it.id == newSegment.id }
+                                    if (idx >= 0) {
+                                        transcriptItems[idx] = transcriptItems[idx].copy(
+                                            translatedText = translation,
+                                            isTranslating = false
+                                        )
+                                    }
+                                }
+                                .onFailure { error ->
+                                    Log.e("App", "Translation failed: ${error.message}")
+                                    val idx = transcriptItems.indexOfFirst { it.id == newSegment.id }
+                                    if (idx >= 0) {
+                                        transcriptItems[idx] = transcriptItems[idx].copy(
+                                            translationError = error.message ?: "翻譯失敗",
+                                            isTranslating = false
+                                        )
+                                    }
+                                }
+                        }
+                    }
                 }
             }
         } catch (error: Throwable) {
@@ -161,8 +226,9 @@ fun MeetingScreen(
             selectedLanguage = selectedLanguage,
             onLanguageChanged = { newLanguage ->
                 selectedLanguage = newLanguage
-                // 清空字幕列表，因為將重新建立 session
+                // 清空字幕列表和翻譯狀態，因為將重新建立 session
                 transcriptItems.clear()
+                translatingIds.value = emptySet()
             },
             enabled = meetingState is MeetingState.Idle || meetingState is MeetingState.Error
         )
@@ -175,7 +241,7 @@ fun MeetingScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         // 3.1 字幕顯示（取最後幾段避免擠滿畫面）
-        // 方案 B：區分中間結果（淺色）和最終結果（正常色）
+        // Phase 5: 雙行顯示（原文 + 翻譯）
         val recentSegments = transcriptItems.takeLast(5)
         if (recentSegments.isNotEmpty()) {
             Text(
@@ -183,32 +249,11 @@ fun MeetingScreen(
                 style = MaterialTheme.typography.titleMedium
             )
             Spacer(modifier = Modifier.height(8.dp))
-            recentSegments.forEach { segment ->
-                val startTime = TimeFormatter.formatMillisToTime(segment.startTimeMs)
-                val endTime = TimeFormatter.formatMillisToTime(segment.endTimeMs)
-
-                // 方案 B：根據 isFinal 標誌調整顯示樣式
-                val textColor = if (segment.isFinal) {
-                    Color.Unspecified  // 正常顏色（黑色/白色，根據主題）
-                } else {
-                    Color.Gray  // 淺灰色表示臨時結果
-                }
-
-                val textStyle = if (segment.isFinal) {
-                    MaterialTheme.typography.bodyMedium  // 正常字體
-                } else {
-                    MaterialTheme.typography.bodyMedium.copy(
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic  // 斜體表示臨時
-                    )
-                }
-
-                Text(
-                    text = "[$startTime-$endTime] ${segment.text}",
-                    style = textStyle,
-                    color = textColor
-                )
+            recentSegments.forEach { item ->
+                TranscriptItemView(item)
+                Spacer(modifier = Modifier.height(8.dp))
             }
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
         // 5. 操作按鈕區（單行橫向排列）
@@ -258,11 +303,93 @@ fun MeetingScreen(
                     Log.d("App", "User clicked Release")
                     session?.release()
                     transcriptItems.clear()
+                    translatingIds.value = emptySet()
                 },
                 enabled = meetingState is MeetingState.Ready || meetingState is MeetingState.Error,
                 modifier = Modifier.weight(1f)
             ) {
                 Text("Release")
+            }
+        }
+    }
+}
+
+/**
+ * 字幕項目顯示元件 (Phase 5)
+ *
+ * 雙行顯示：
+ * - 第一行：時間戳 + 英文原文
+ * - 第二行：翻譯結果（翻譯中/完成/失敗）
+ *
+ * 設計考量：
+ * - 中間結果（isFinal=false）顯示為灰色斜體，不顯示翻譯
+ * - 最終結果（isFinal=true）顯示為正常字體，並顯示翻譯狀態
+ */
+@Composable
+fun TranscriptItemView(item: TranslatedSegment) {
+    val segment = item.original
+    val startTime = TimeFormatter.formatMillisToTime(segment.startTimeMs)
+    val endTime = TimeFormatter.formatMillisToTime(segment.endTimeMs)
+
+    // 根據 isFinal 標誌調整原文顯示樣式
+    val originalTextColor = if (segment.isFinal) {
+        Color.Unspecified  // 正常顏色（黑色/白色，根據主題）
+    } else {
+        Color.Gray  // 淺灰色表示臨時結果
+    }
+
+    val originalTextStyle = if (segment.isFinal) {
+        MaterialTheme.typography.bodyMedium  // 正常字體
+    } else {
+        MaterialTheme.typography.bodyMedium.copy(
+            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic  // 斜體表示臨時
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // 第一行：時間戳 + 英文原文
+        Text(
+            text = "[$startTime-$endTime] ${segment.text}",
+            style = originalTextStyle,
+            color = originalTextColor
+        )
+
+        // 第二行：翻譯結果（只有 final 結果才顯示翻譯區塊）
+        if (segment.isFinal) {
+            when {
+                item.isTranslating -> {
+                    Text(
+                        text = "翻譯中...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(start = 16.dp, top = 2.dp)
+                    )
+                }
+                item.translatedText != null -> {
+                    Text(
+                        text = item.translatedText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 16.dp, top = 2.dp)
+                    )
+                }
+                item.translationError != null -> {
+                    Text(
+                        text = "翻譯失敗: ${item.translationError}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Red,
+                        modifier = Modifier.padding(start = 16.dp, top = 2.dp)
+                    )
+                }
+                // 尚未開始翻譯（翻譯服務不可用時）
+                else -> {
+                    Text(
+                        text = "（翻譯服務未就緒）",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(start = 16.dp, top = 2.dp)
+                    )
+                }
             }
         }
     }

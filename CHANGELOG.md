@@ -1,5 +1,45 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-02-04] - 新增即時翻譯功能（MediaPipe LLM）
+
+### 新功能
+- 整合 MediaPipe LLM (Gemma-3 1B) 進行英翻繁中即時翻譯
+- UI 改為雙行顯示模式：
+  - 第一行：時間戳 + 英文原文
+  - 第二行：翻譯結果（翻譯中/完成/失敗狀態）
+- 只翻譯 `isFinal=true` 的最終結果，節省運算資源
+- 翻譯服務生命週期管理：onCreate 初始化、onDestroy 釋放
+
+### 新增檔案
+- `app/src/main/java/com/edgemeeting/sdk/model/TranslatedSegment.kt`
+  - 包含翻譯狀態的字幕段落資料類別
+  - 追蹤翻譯進度：isTranslating、translatedText、translationError
+- `app/src/main/java/com/edgemeeting/sdk/translation/TranslationService.kt`
+  - 封裝 MediaPipe LlmInference 初始化與生命週期
+  - 非同步翻譯 API（suspend function）
+  - 模型路徑：`/data/local/tmp/llm/gemma3-1b-it-int4.task`
+
+### 修改檔案
+- `app/build.gradle.kts`：新增 MediaPipe tasks-genai:0.10.27 依賴
+- `app/src/main/java/com/edgemeeting/sdk/MainActivity.kt`
+  - 新增 TranslationService 成員變數與生命週期管理
+  - MeetingScreen 新增翻譯觸發邏輯
+  - 新增 TranscriptItemView Composable（雙行顯示）
+
+### 技術細節
+- 翻譯 Prompt：`Translate the following English text to Traditional Chinese (Taiwan). Only output the translation, nothing else.`
+- 翻譯參數：maxTokens=512（LlmInferenceOptions 只支援 modelPath 和 maxTokens）
+- 使用 segment.id 追蹤已翻譯段落，避免重複請求
+
+### 前置需求
+- 需先將 Gemma-3 1B 模型 push 到裝置：
+  ```bash
+  adb shell mkdir -p /data/local/tmp/llm/
+  adb push gemma3-1b-it-int4.task /data/local/tmp/llm/
+  ```
+
+---
+
 ## [2026-02-03] - 放寬音訊時間限制至 16 秒
 
 ### 效能調整
