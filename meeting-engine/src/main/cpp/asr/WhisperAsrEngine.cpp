@@ -382,16 +382,16 @@ void inferenceThreadFunc(WhisperAsrEngine::Impl* impl, WhisperAsrEngine* engine)
 
         // 方案 B-Fixed：推論前最終保護（防止隊列中的舊請求使用過長音訊）
         // 問題：Buffer overflow 修剪發生在 pushAudio，但推論請求已在隊列中
-        // 解決：推論前檢查，如果音訊 > 12s，只處理最後 12s
-        const size_t MAX_INFERENCE_SAMPLES = 16000 * 12;  // 12 秒上限
+        // 解決：推論前檢查，如果音訊 > 16s，只處理最後 16s
+        const size_t MAX_INFERENCE_SAMPLES = 16000 * 16;  // 16 秒上限
         const int16_t* audioPtr = req.audioData.data();
         size_t audioSamples = req.audioData.size();
 
         if (audioSamples > MAX_INFERENCE_SAMPLES) {
-            // 只取最後 12 秒（避免 Whisper 幻覺）
+            // 只取最後 16 秒（避免 Whisper 幻覺）
             audioPtr = req.audioData.data() + (audioSamples - MAX_INFERENCE_SAMPLES);
             audioSamples = MAX_INFERENCE_SAMPLES;
-            LOGW("Inference request too long (%.1fs), trimmed to last 12s",
+            LOGW("Inference request too long (%.1fs), trimmed to last 16s",
                  req.audioData.size() / 16000.0);
         }
 
@@ -452,9 +452,9 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
 
         // 方案 B-Fixed：Buffer 硬上限保護（防止推論速度跟不上時無限累積）
         // 問題：當 RTF ≈ 0.4-0.7 時，推論耗時接近實時，Buffer 會在推論期間持續增長
-        // 解決：設置 14s 硬上限（配合 MAX_SAMPLES=12s），超過時丟棄最舊的音訊，保留最新的 11s
-        const size_t HARD_LIMIT_SAMPLES = 16000 * 14;  // 14 秒硬上限（配合 MAX_SAMPLES=12s）
-        const size_t KEEP_SAMPLES = 16000 * 11;        // 保留 11 秒（留 1s 緩衝）
+        // 解決：設置 18s 硬上限（配合 MAX_SAMPLES=16s），超過時丟棄最舊的音訊，保留最新的 15s
+        const size_t HARD_LIMIT_SAMPLES = 16000 * 18;  // 18 秒硬上限（配合 MAX_SAMPLES=16s）
+        const size_t KEEP_SAMPLES = 16000 * 15;        // 保留 15 秒（留 1s 緩衝）
 
         if (impl_->audioBuffer.size() > HARD_LIMIT_SAMPLES) {
             size_t discarded_samples = impl_->audioBuffer.size() - KEEP_SAMPLES;
@@ -462,7 +462,7 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
                 impl_->audioBuffer.begin(),
                 impl_->audioBuffer.begin() + discarded_samples
             );
-            LOGW("⚠️  Buffer overflow! Trimmed %.1fs → 13s (discarded oldest %.1fs)",
+            LOGW("⚠️  Buffer overflow! Trimmed %.1fs → 15s (discarded oldest %.1fs)",
                  (impl_->audioBuffer.size() + discarded_samples) / 16000.0,
                  discarded_samples / 16000.0);
         }
@@ -506,7 +506,7 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
 
         // === 推論觸發判斷 - 方案 B：雙軌推論機制 ===
         const size_t MIN_SAMPLES = 16000 * 3;   // 最低總音訊長度：3 秒
-        const size_t MAX_SAMPLES = 16000 * 12;  // 最大緩衝：12 秒（降低 decoder 截斷機率）
+        const size_t MAX_SAMPLES = 16000 * 16;  // 最大緩衝：16 秒（放寬上限，允許更長語句）
         const int SILENCE_THRESHOLD_MS = 800;   // 靜音觸發閾值
         const int PAUSE_THRESHOLD_MS = 1500;    // PAUSE 持續觸發閾值
         const int MIN_SPEECH_DURATION_MS = 2000; // 最低語音時長：2 秒

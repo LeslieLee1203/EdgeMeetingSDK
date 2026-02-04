@@ -1,5 +1,24 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-02-03] - 放寬音訊時間限制至 16 秒
+
+### 效能調整
+- 將 Whisper ASR 音訊緩衝上限從 12 秒放寬至 16 秒
+- 調整相關參數：
+  - `MAX_SAMPLES`: 12s → 16s（最大緩衝）
+  - `MAX_INFERENCE_SAMPLES`: 12s → 16s（推論前保護上限）
+  - `HARD_LIMIT_SAMPLES`: 14s → 18s（Buffer 硬上限）
+  - `KEEP_SAMPLES`: 11s → 15s（溢出時保留長度）
+
+### 變更檔案
+- `meeting-engine/src/main/cpp/asr/WhisperAsrEngine.cpp`
+
+### 說明
+- 允許 Whisper 處理更長的語句，減少強制截斷的情況
+- 配合模型支援的 20 秒輸入上限，16 秒提供較佳的平衡點
+
+---
+
 ## [2026-02-03] - Release Build 移除開發用 Log
 
 ### 效能優化
