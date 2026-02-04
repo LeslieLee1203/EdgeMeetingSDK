@@ -1,5 +1,74 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-02-04] - 翻譯服務全面重構
+
+### 修復問題
+- **並發衝突**：新增 `Mutex` 確保一次只處理一個翻譯，解決 "Previous invocation still processing" 錯誤
+- **Few-shot 被照抄**：移除 few-shot 範例，改用極簡 Prompt
+- **重複輸出**：新增 `truncateRepetition()` 偵測並截斷重複（如 "你，你，你，..."）
+- **簡體中文**：新增 `convertToTraditional()` 簡體轉繁體（100+ 常用字映射）
+- **多餘尾綴**：新增 `removeExtraSuffix()` 移除 "好嗎？" 等模型自動添加的問句
+
+### 架構變更
+- **回退到同步 API**：從 `LlmInferenceSession` 回退到 `LlmInference.generateResponse()`
+  - 原因：Session API 狀態管理複雜，容易導致並發問題
+  - 取捨：無法控制 temperature，但更穩定
+- **超時保護**：新增 10 秒翻譯超時，避免模型卡死
+
+### 修改檔案
+- `app/src/main/java/com/edgemeeting/sdk/translation/TranslationService.kt`（全面重構）
+  - 移除 `LlmInferenceSession` 相關程式碼
+  - 新增 `Mutex` 並發控制
+  - 簡化 Prompt（移除 few-shot 範例）
+  - 強化後處理流程
+
+### 新 Prompt 設計
+```
+Translate to Traditional Chinese (Taiwan).
+Output ONLY the Chinese translation.
+No pinyin. No explanations. No questions.
+```
+
+### 簡轉繁映射表
+- 涵蓋 100+ 常用簡繁差異字
+- 包含：儿→兒、从→從、将→將、国→國、岁→歲 等
+
+---
+
+## [2026-02-04] - 翻譯品質優化
+
+### 品質改進
+- **Few-shot Prompt 設計**：提供 3 個翻譯範例讓模型學習輸出格式
+- **明確禁止規則**：禁止輸出拼音、其他語言、重複英文
+- **LlmInferenceSession**：使用 Session API 控制生成參數
+  - `temperature = 0.2`：降低隨機性，輸出更穩定
+  - `topK = 10`：限制取樣範圍，減少幻覺
+  - `topP = 0.9`：nucleus sampling 閾值
+
+### 新增功能
+- **輸入預處理**：移除前後空白，避免影響模型理解
+- **輸出後處理**：
+  - 移除拼音（括號內的羅馬拼音）
+  - 移除 "Chinese:" 前綴
+  - 移除引號
+  - 移除句末殘留的英文
+  - 合併重複標點符號
+- **Session 重置**：每次翻譯後重置 session，避免上下文污染
+
+### 修改檔案
+- `app/src/main/java/com/edgemeeting/sdk/translation/TranslationService.kt`
+  - 重構為使用 LlmInferenceSession
+  - 新增 `postProcessTranslation()` 後處理函數
+  - 新增 `resetSession()` 重置函數
+  - 更新生命週期管理：先釋放 Session 再釋放 Engine
+
+### 技術細節
+- Few-shot Prompt 範例數量：3 個
+- 拼音匹配正則：`\s*[\(（][A-Za-zāáǎà...]+[\)）]`
+- 生成參數：temperature=0.2, topK=10, topP=0.9, maxTokens=512
+
+---
+
 ## [2026-02-04] - 新增即時翻譯功能（MediaPipe LLM）
 
 ### 新功能
