@@ -54,6 +54,9 @@ dependencies {
     implementation(project(":meeting-core"))
     implementation(project(":meeting-engine"))
 
+    // ML Kit Translation (英文→中文即時翻譯)
+    implementation("com.google.mlkit:translate:17.0.3")
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

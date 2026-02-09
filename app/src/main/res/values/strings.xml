@@ -1,3 +1,27 @@
 <resources>
     <string name="app_name">EdgeMeetingSDK</string>
+    <string name="meeting_screen_title">EdgeMeeting SDK\nIntegration Test</string>
+    <string name="transcripts_title">Transcripts</string>
+    <string name="button_prepare">Prepare</string>
+    <string name="button_start">Start</string>
+    <string name="button_stop">Stop</string>
+    <string name="button_release">Release</string>
+    <string name="state_current">Current State</string>
+    <string name="state_idle">Idle</string>
+    <string name="state_preparing">Preparing</string>
+    <string name="state_ready">Ready</string>
+    <string name="state_listening">Listening</string>
+    <string name="state_error">Error: %1$s</string>
+    <string name="language_label">Language:</string>
+    <string name="language_english">English</string>
+    <string name="language_chinese">中文</string>
+    <string name="language_japanese">日本語</string>
+    <string name="language_korean">한국어</string>
+    <string name="transcript_line_format">[%1$s-%2$s] %3$s</string>
+    <string name="translation_model_downloading">正在下載翻譯模型...</string>
+    <string name="translation_model_pending">翻譯模型待下載</string>
+    <string name="translation_model_download_failed">翻譯模型下載失敗，請確認網路狀態</string>
+    <string name="translation_in_progress">翻譯中...</string>
+    <string name="translation_failed">翻譯失敗</string>
+    <string name="translation_empty">—</string>
 </resources>

@@ -1,5 +1,52 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-02-05] - 新增 ML Kit 即時翻譯功能
+
+### 新功能
+- 整合 Google ML Kit Translate，將英文字幕即時翻譯成中文
+- 字幕顯示改為每組兩行：英文原文 + 中文翻譯
+- 翻譯模型自動下載管理（約 30MB）
+- 翻譯狀態提示（下載中、翻譯中）
+- Prepare 階段確認翻譯模型可用，失敗時提示錯誤
+
+### 新增檔案
+- `app/src/main/java/com/edgemeeting/sdk/translation/MlKitTranslator.kt`
+  - 封裝 ML Kit 翻譯 API
+  - 管理翻譯模型下載狀態
+  - 提供非同步翻譯介面
+- `app/src/main/java/com/edgemeeting/sdk/translation/TranscriptWithTranslation.kt`
+  - 帶翻譯的字幕資料結構
+- `app/src/main/java/com/edgemeeting/sdk/ui/MeetingScreenContent.kt`
+  - 會議畫面 UI 內容拆分
+- `app/src/main/java/com/edgemeeting/sdk/ui/MeetingScreenController.kt`
+  - 會議畫面狀態控制與副作用集中管理
+- `app/src/main/java/com/edgemeeting/sdk/ui/MeetingScreenContract.kt`
+  - 會議畫面狀態與動作定義
+
+### 變更檔案
+- `app/build.gradle.kts`：新增 ML Kit translate 依賴
+- `app/src/main/java/com/edgemeeting/sdk/MainActivity.kt`：
+  - 整合翻譯服務
+  - 新增 `TranscriptItemView` composable
+  - 字幕收集時觸發背景翻譯
+  - 翻譯模型下載狀態提示
+  - 重構為使用 `MeetingScreenContent` 與 `MeetingScreenController`
+  - 移除畫面內部過多邏輯與日誌輸出
+
+### 技術說明
+- 翻譯功能放在 app 層，不修改 meeting-core 或 meeting-engine 模組
+- 翻譯結果僅在 UI 層保存，不影響原始資料模型
+- 非同步翻譯，不阻塞 ASR 輸出
+- 首次使用需要網路連線下載翻譯模型
+- 字幕與翻譯狀態更新使用同步鎖避免並發修改
+- 翻譯相關文案移至 string resources
+- 翻譯並發限制為 1，避免短時間內大量翻譯請求
+- 將 UI Composable 與字幕工具函式抽離為獨立檔案
+- 修正 MeetingScreenController 的函式引用導致的編譯錯誤
+- 恢復語言選項測試依賴的 API 並集中管理語言標籤
+
+---
+
 ## [2026-02-03] - 放寬音訊時間限制至 16 秒
 
 ### 效能調整
