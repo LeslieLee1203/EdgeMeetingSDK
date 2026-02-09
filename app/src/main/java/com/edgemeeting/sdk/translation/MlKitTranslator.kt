@@ -1,6 +1,7 @@
 package com.edgemeeting.sdk.translation
 
 import android.util.Log
+import com.github.houbb.opencc4j.util.ZhTwConverterUtil
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.nl.translate.Translation
@@ -111,8 +112,14 @@ class MlKitTranslator : Closeable {
         return suspendCancellableCoroutine { continuation ->
             translator.translate(text)
                 .addOnSuccessListener { translatedText ->
-                    Log.d(TAG, "Translation: \"${text.take(30)}...\" → \"${translatedText.take(30)}...\"")
-                    continuation.resume(translatedText)
+                    val traditionalText = try {
+                        ZhTwConverterUtil.toTraditional(translatedText)
+                    } catch (exception: Exception) {
+                        Log.e(TAG, "Traditional conversion failed, fallback to simplified", exception)
+                        translatedText
+                    }
+                    Log.d(TAG, "Translation: \"${text.take(30)}...\" → \"${traditionalText.take(30)}...\"")
+                    continuation.resume(traditionalText)
                 }
                 .addOnFailureListener { exception ->
                     Log.e(TAG, "Translation failed for: \"${text.take(50)}\"", exception)

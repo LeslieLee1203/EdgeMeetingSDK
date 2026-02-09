@@ -1,5 +1,16 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-02-09] - ML Kit 翻譯簡轉繁（台灣）
+
+### 修正
+- ML Kit 翻譯結果由簡體轉為台灣繁體後再顯示
+
+### 變更檔案
+- `app/src/main/java/com/edgemeeting/sdk/translation/MlKitTranslator.kt`：翻譯成功後進行簡轉繁並加入錯誤處理
+- `app/build.gradle.kts`：新增 opencc4j 依賴
+
+---
+
 ## [2026-02-05] - 新增 ML Kit 即時翻譯功能
 
 ### 新功能

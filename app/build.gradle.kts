@@ -56,6 +56,8 @@ dependencies {
 
     // ML Kit Translation (英文→中文即時翻譯)
     implementation("com.google.mlkit:translate:17.0.3")
+    // opencc4j（簡體→台灣繁體轉換）
+    implementation("com.github.houbb:opencc4j:1.14.0")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
