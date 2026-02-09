@@ -1,20 +1,21 @@
 # EdgeMeeting SDK 專案架構概述
 
-> **給 CEO 的技術報告** | 版本 1.0 | 2026 年 1 月
+> **給 CEO 的技術報告** | 版本 2.0 | 2026 年 2 月
 
 ---
 
 ## 一、專案概述
 
-EdgeMeeting SDK 是一套 **端上（On-Device）即時語音轉錄 SDK**，專為 RK3588 平台優化。透過 NPU 加速執行 OpenAI Whisper 語音辨識模型，實現低延遲、高隱私的會議字幕功能。
+EdgeMeeting SDK 是一套 **端上（On-Device）即時語音轉錄與翻譯 SDK**，專為 RK3588 平台優化。透過 NPU 加速執行 OpenAI Whisper 語音辨識模型，搭配 Google ML Kit 翻譯與 opencc4j 簡繁轉換，實現低延遲、高隱私的會議字幕功能。
 
 ### 核心價值
 
 | 特性 | 描述 |
 |------|------|
-| **隱私優先** | 所有語音處理在本地完成，不傳送雲端 |
+| **隱私優先** | 語音辨識在本地完成，不傳送雲端 |
 | **低延遲** | 音訊到字幕 < 3 秒，RTF (Real-Time Factor) < 0.3 |
-| **多語言** | 支援英文、中文、日文、韓文 |
+| **即時翻譯** | 英文語音 → 英文字幕 → 繁體中文翻譯，雙語同步顯示 |
+| **多語言** | ASR 支援英文、中文、日文、韓文 |
 | **易整合** | 純 Kotlin API，4 個方法即可完成整合 |
 
 ---
@@ -24,11 +25,31 @@ EdgeMeeting SDK 是一套 **端上（On-Device）即時語音轉錄 SDK**，專�
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              應用層 (app)                                    │
+│                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  MainActivity (Jetpack Compose)                                      │   │
-│  │  • 觀察 state: StateFlow<MeetingState>                               │   │
-│  │  • 收集 transcriptFlow: Flow<List<TranscriptSegment>>                │   │
-│  │  • 呼叫 prepare() → start() → stop() → release()                     │   │
+│  │  UI Layer (Jetpack Compose)                                          │   │
+│  │  ┌───────────────────────┐  ┌────────────────────────────────────┐  │   │
+│  │  │  MeetingScreenContent │  │  TranscriptItemView               │  │   │
+│  │  │  (主畫面)              │  │  • 第一行：時間戳 + 英文原文      │  │   │
+│  │  │                       │  │  • 第二行：繁體中文翻譯            │  │   │
+│  │  └───────────────────────┘  └────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  Translation Layer (翻譯管線)                                        │   │
+│  │  ┌───────────────────────┐  ┌────────────────────────────────────┐  │   │
+│  │  │  MeetingScreenCtrl   │  │  MlKitTranslator                  │  │   │
+│  │  │  • 收集 transcriptFlow│  │  • ML Kit: 英文 → 簡體中文       │  │   │
+│  │  │  • 觸發背景翻譯       │  │  • opencc4j: 簡體 → 台灣繁體    │  │   │
+│  │  │  • 合併翻譯結果       │  │  • 模型下載管理 (~30MB)          │  │   │
+│  │  └───────────────────────┘  └────────────────────────────────────┘  │   │
+│  │                                                                       │   │
+│  │  ┌────────────────────────────────────────────────────────────────┐  │   │
+│  │  │  TranscriptWithTranslation (UI 資料模型)                       │  │   │
+│  │  │  • original: TranscriptSegment  (ASR 英文原文)                 │  │   │
+│  │  │  • translatedText: String?      (繁體中文翻譯)                 │  │   │
+│  │  │  • isTranslating: Boolean       (翻譯進行中)                   │  │   │
+│  │  └────────────────────────────────────────────────────────────────┘  │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
@@ -58,7 +79,7 @@ EdgeMeeting SDK 是一套 **端上（On-Device）即時語音轉錄 SDK**，專�
 │  │  Kotlin Layer                                                        │   │
 │  │  ┌─────────────────┐  ┌────────────────┐  ┌───────────────────────┐ │   │
 │  │  │ RkMeetingSession│  │  EngineBridge  │  │  ModelAssetManager    │ │   │
-│  │  │  (實作)          │→│   (介面)        │  │  (模型管理)            │ │   │
+│  │  │  (實作)          │→│   (介面)        │  │  (ASR 模型管理)       │ │   │
 │  │  └─────────────────┘  └───────┬────────┘  └───────────────────────┘ │   │
 │  │                               │                                      │   │
 │  │                    ┌──────────▼─────────┐                            │   │
@@ -87,14 +108,17 @@ EdgeMeeting SDK 是一套 **端上（On-Device）即時語音轉錄 SDK**，專�
 
 ## 三、模組職責
 
-### 3.1 app（展示應用）
-- **職責**：UI 展示與用戶互動
-- **技術**：Jetpack Compose + Material 3
+### 3.1 app（展示應用 + 翻譯管線）
+- **職責**：UI 展示、用戶互動、**即時翻譯管線**
+- **技術**：Jetpack Compose + Material 3 + ML Kit Translation + opencc4j
 - **功能**：
   - 權限請求（麥克風）
   - 語言選擇（英/中/日/韓）
   - 狀態顯示（Idle → Ready → Listening）
   - 字幕列表呈現（區分暫時/最終結果）
+  - **翻譯管線**：英文 ASR 輸出 → ML Kit 翻譯為簡體中文 → opencc4j 轉換為台灣繁體中文
+  - 翻譯模型自動下載管理（約 30MB）
+  - 雙語顯示：英文原文 + 繁體中文翻譯
 
 ### 3.2 meeting-core（合約定義）
 - **職責**：定義 SDK 對外介面
@@ -111,7 +135,19 @@ EdgeMeeting SDK 是一套 **端上（On-Device）即時語音轉錄 SDK**，專�
 
 ## 四、完整資料流程
 
-### 4.1 資料流程圖
+### 4.1 端到端資料流概覽
+
+```
+┌──────────┐    ┌───────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│  麥克風   │───▶│ Whisper   │───▶│ ML Kit   │───▶│ opencc4j │───▶│   UI     │
+│  (音訊)   │    │ ASR (C++) │    │ 翻譯     │    │ 簡→繁    │    │ 雙語顯示 │
+│  16kHz    │    │ 英文文字  │    │ 簡體中文 │    │ 繁體中文 │    │ EN + ZH  │
+└──────────┘    └───────────┘    └──────────┘    └──────────┘    └──────────┘
+   On-Device       On-Device       On-Device       On-Device
+   (C++ / NPU)     (C++ / NPU)    (ML Kit)        (Java Library)
+```
+
+### 4.2 詳細資料流程圖
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -207,7 +243,7 @@ EdgeMeeting SDK 是一套 **端上（On-Device）即時語音轉錄 SDK**，專�
 │  │                          ▼                                              │ │
 │  │  ┌──────────────────────────────────────────────────────────────────┐  │ │
 │  │  │  Step 4: 詞彙表解碼                                               │  │ │
-│  │  │  • Token IDs → 文字                                              │  │ │
+│  │  │  • Token IDs → 英文文字                                           │  │ │
 │  │  │  • BPE 詞彙表：vocab_en.txt (51,864 tokens)                      │  │ │
 │  │  │  • 多語言共用詞彙表                                                │  │ │
 │  │  │  • 中文 Token 使用 Base64 編碼                                    │  │ │
@@ -218,6 +254,7 @@ EdgeMeeting SDK 是一套 **端上（On-Device）即時語音轉錄 SDK**，專�
 └─────────────────────────────┼────────────────────────────────────────────────┘
                               │
                               │ TranscriptCallback (JNI)
+                              │ 回傳英文文字 TranscriptSegment
                               ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  JNI Callback Layer                                                          │
@@ -228,70 +265,163 @@ EdgeMeeting SDK 是一套 **端上（On-Device）即時語音轉錄 SDK**，專�
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  RkMeetingSession (Kotlin)                                                   │
+│  RkMeetingSession (meeting-engine, Kotlin)                                   │
 │  • EngineCallback.onTranscript(TranscriptSegment)                           │
 │  • transcriptFlow.tryEmit(listOf(segment))                                  │
+│  • TranscriptSegment.text = 英文原文（ASR 直接輸出）                          │
 └─────────────────────────────────────────────────────────────────────────────┘
                               │
                               │ Flow<List<TranscriptSegment>>
+                              │ (英文原文)
                               ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  MainActivity (Compose UI)                                                   │
-│  • session.transcriptFlow.collect { segments -> ... }                       │
-│  • 智能合併：                                                                 │
-│    - isFinal=false (灰色斜體) → 中間結果，可被覆蓋                            │
-│    - isFinal=true (正常字體) → 最終結果，不可覆蓋                             │
-│  • 時間戳記顯示：[00:05-00:10] 轉錄文字...                                    │
+│  MeetingScreenController (app 層)                                            │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  CollectTranscripts()                                                    │ │
+│  │                                                                          │ │
+│  │  [Step A] 收集 ASR 輸出                                                  │ │
+│  │  • session.transcriptFlow.collect { segments → ... }                    │ │
+│  │  • 智能合併：isFinal=false 可被覆蓋，isFinal=true 為最終結果             │ │
+│  │  • 建立 TranscriptWithTranslation(original=segment, isTranslating=true) │ │
+│  │  • 立即加入 UI 列表（先顯示英文原文 + 「翻譯中...」）                     │ │
+│  │                              │                                            │ │
+│  │                              │ launch (背景協程)                           │ │
+│  │                              ▼                                            │ │
+│  │  [Step B] 背景翻譯任務                                                    │ │
+│  │  • Semaphore(1) 限制同時翻譯數量為 1                                      │ │
+│  │  • Mutex 保護 items 列表的執行緒安全                                       │ │
+│  │                              │                                            │ │
+│  └──────────────────────────────┼─────────────────────────────────────────┘ │
+│                                 │                                             │
+│                                 ▼                                             │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  MlKitTranslator.translate(englishText)                                  │ │
+│  │                                                                          │ │
+│  │  ┌──────────────────────────────────────────────────────────────────┐  │ │
+│  │  │  Step B-1: ML Kit Translation                                     │  │ │
+│  │  │  • Google ML Kit Translate API                                    │  │ │
+│  │  │  • 來源語言：English (TranslateLanguage.ENGLISH)                  │  │ │
+│  │  │  • 目標語言：Chinese (TranslateLanguage.CHINESE)                  │  │ │
+│  │  │  • 翻譯模型：~30MB（首次需下載，後續離線可用）                     │  │ │
+│  │  │  • 輸入："Hello, welcome to the meeting"                          │  │ │
+│  │  │  • 輸出："你好，欢迎来到会议"（簡體中文）                           │  │ │
+│  │  └──────────────────────────────────────────────────────────────────┘  │ │
+│  │                              │                                          │ │
+│  │                              ▼                                          │ │
+│  │  ┌──────────────────────────────────────────────────────────────────┐  │ │
+│  │  │  Step B-2: opencc4j 簡繁轉換                                      │  │ │
+│  │  │  • ZhTwConverterUtil.toTraditional(simplifiedText)               │  │ │
+│  │  │  • 輸入："你好，欢迎来到会议"（簡體中文）                           │  │ │
+│  │  │  • 輸出："你好，歡迎來到會議"（台灣繁體中文）                       │  │ │
+│  │  │  • 失敗降級：回傳簡體中文（不阻斷流程）                            │  │ │
+│  │  └──────────────────────────────────────────────────────────────────┘  │ │
+│  │                              │                                          │ │
+│  │  回傳：繁體中文文字（或 null 表示翻譯失敗）                               │ │
+│  └──────────────────────────────┼─────────────────────────────────────────┘ │
+│                                 │                                             │
+│  ┌──────────────────────────────▼─────────────────────────────────────────┐ │
+│  │  [Step C] 更新 UI 資料                                                   │ │
+│  │  • 找到對應的 TranscriptWithTranslation (by segment.id)                 │ │
+│  │  • 更新：translatedText = 繁體中文, isTranslating = false               │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                 │                                             │
+└─────────────────────────────────┼─────────────────────────────────────────────┘
+                                  │
+                                  │ SnapshotStateList<TranscriptWithTranslation>
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  TranscriptItemView (Compose UI)                                             │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  第一行：時間戳 + 英文原文                                               │ │
+│  │  • isFinal=false → 灰色斜體（臨時結果）                                 │ │
+│  │  • isFinal=true  → 正常顏色（最終結果）                                 │ │
+│  │  • 例：[00:05-00:10] Hello, welcome to the meeting                     │ │
+│  ├────────────────────────────────────────────────────────────────────────┤ │
+│  │  第二行：中文翻譯                                                        │ │
+│  │  • isTranslating=true       → 灰色 "翻譯中..."                         │ │
+│  │  • translatedText != null   → 主題色 "你好，歡迎來到會議"               │ │
+│  │  • translatedText == null   → 灰色 "—"（翻譯失敗）                     │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.2 時序圖
+### 4.3 翻譯管線摘要
 
 ```
-┌─────────┐     ┌──────────────┐     ┌────────────┐     ┌─────────────┐     ┌─────┐
-│   User  │     │ MainActivity │     │RkMeeting   │     │ C++ Native  │     │ NPU │
-└────┬────┘     └──────┬───────┘     │ Session    │     │   Layer     │     └──┬──┘
-     │                 │             └─────┬──────┘     └──────┬──────┘        │
-     │  [選擇語言]      │                   │                   │               │
-     │────────────────▶│                   │                   │               │
-     │                 │                   │                   │               │
-     │  [點擊 Prepare] │                   │                   │               │
-     │────────────────▶│                   │                   │               │
-     │                 │  prepare()        │                   │               │
-     │                 │──────────────────▶│                   │               │
-     │                 │                   │  bridge.init()    │               │
-     │                 │                   │──────────────────▶│               │
-     │                 │                   │                   │ 載入 RKNN 模型│
-     │                 │                   │                   │──────────────▶│
-     │                 │                   │                   │◀──────────────│
-     │                 │                   │◀──────────────────│               │
-     │                 │◀──────────────────│                   │               │
-     │                 │  state = Ready    │                   │               │
-     │◀────────────────│                   │                   │               │
-     │                 │                   │                   │               │
-     │  [點擊 Start]   │                   │                   │               │
-     │────────────────▶│                   │                   │               │
-     │                 │  start()          │                   │               │
-     │                 │──────────────────▶│                   │               │
-     │                 │                   │  bridge.start()   │               │
-     │                 │                   │──────────────────▶│               │
-     │                 │                   │                   │ 開始錄音      │
-     │                 │◀──────────────────│                   │               │
-     │                 │  state = Listening│                   │               │
-     │◀────────────────│                   │                   │               │
-     │                 │                   │                   │               │
-     │  [說話中...]     │                   │                   │               │
-     │                 │                   │                   │               │
-     │                 │                   │   (音訊累積 3-20s) │               │
-     │                 │                   │                   │──────────────▶│
-     │                 │                   │                   │   NPU 推論    │
-     │                 │                   │                   │◀──────────────│
-     │                 │                   │◀──────────────────│               │
-     │                 │                   │ onTranscript()    │               │
-     │                 │◀──────────────────│                   │               │
-     │                 │ transcriptFlow    │                   │               │
-     │◀────────────────│ 顯示字幕          │                   │               │
-     │                 │                   │                   │               │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         翻譯管線 (Translation Pipeline)                      │
+│                                                                              │
+│  ┌────────┐    ┌──────────────┐    ┌───────────────┐    ┌───────────────┐  │
+│  │ Whisper│    │   ML Kit     │    │   opencc4j    │    │    UI         │  │
+│  │  ASR   │───▶│  Translate   │───▶│  ZhTwConverter│───▶│   顯示       │  │
+│  │        │    │              │    │  Util         │    │              │  │
+│  │ C++ 層 │    │  app 層      │    │  app 層       │    │  app 層      │  │
+│  └────────┘    └──────────────┘    └───────────────┘    └───────────────┘  │
+│                                                                              │
+│  "Hello"  ──▶  "你好"（簡體）  ──▶  "你好"（繁體）  ──▶  畫面顯示        │
+│                                                                              │
+│  特點：                                                                      │
+│  • 非同步翻譯，不阻塞 ASR 輸出                                               │
+│  • Semaphore(1) 串行化翻譯請求，避免資源競爭                                  │
+│  • 翻譯模型首次需網路下載（~30MB），後續離線可用                               │
+│  • opencc4j 簡繁轉換為純 Java 實作，無需額外資源                              │
+│  • 翻譯失敗時降級處理：簡繁轉換失敗回傳簡體，翻譯失敗顯示 "—"                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.4 時序圖
+
+```
+┌─────────┐  ┌──────────────┐  ┌────────────┐  ┌───────────┐  ┌─────┐  ┌──────────┐
+│   User  │  │ MeetingScreen│  │RkMeeting   │  │ C++ Native│  │ NPU │  │MlKit     │
+│         │  │ Controller   │  │ Session    │  │   Layer   │  │     │  │Translator│
+└────┬────┘  └──────┬───────┘  └─────┬──────┘  └─────┬─────┘  └──┬──┘  └────┬─────┘
+     │              │                │                │           │          │
+     │ [App 啟動]   │                │                │           │          │
+     │              │──────────────────────────────────────────────────────▶│
+     │              │                │                │           │   下載翻譯模型
+     │              │                │                │           │   (~30MB)
+     │              │◀──────────────────────────────────────────────────────│
+     │              │                │                │           │          │
+     │ [點擊 Prepare]               │                │           │          │
+     │─────────────▶│  prepare()     │                │           │          │
+     │              │───────────────▶│  bridge.init() │           │          │
+     │              │                │───────────────▶│ 載入 RKNN │          │
+     │              │                │                │──────────▶│          │
+     │              │                │                │◀──────────│          │
+     │              │                │◀───────────────│           │          │
+     │              │◀───────────────│                │           │          │
+     │              │ state = Ready  │                │           │          │
+     │◀─────────────│                │                │           │          │
+     │              │                │                │           │          │
+     │ [點擊 Start] │  start()       │                │           │          │
+     │─────────────▶│───────────────▶│  bridge.start()│           │          │
+     │              │                │───────────────▶│ 開始錄音  │          │
+     │              │◀───────────────│                │           │          │
+     │              │ state=Listening│                │           │          │
+     │◀─────────────│                │                │           │          │
+     │              │                │                │           │          │
+     │ [說話中...]   │                │  (音訊累積)     │           │          │
+     │              │                │                │──────────▶│          │
+     │              │                │                │ NPU 推論  │          │
+     │              │                │                │◀──────────│          │
+     │              │                │◀───────────────│           │          │
+     │              │                │ onTranscript() │           │          │
+     │              │◀───────────────│ (英文)          │           │          │
+     │              │                │                │           │          │
+     │              │ 顯示英文原文 + "翻譯中..."       │           │          │
+     │◀─────────────│                │                │           │          │
+     │              │ translate(english)──────────────────────────────────▶│
+     │              │                │                │           │ ML Kit   │
+     │              │                │                │           │ EN→簡中  │
+     │              │                │                │           │ opencc4j │
+     │              │                │                │           │ 簡中→繁中│
+     │              │◀──────────────────────────────────────────────────────│
+     │              │ 更新翻譯結果    │                │           │          │
+     │◀─────────────│ 英文 + 繁體中文│                │           │          │
+     │              │                │                │           │          │
 ```
 
 ---
@@ -388,6 +518,8 @@ EdgeMeeting SDK 是一套 **端上（On-Device）即時語音轉錄 SDK**，專�
 | ASR 模型 | Whisper Base | 多語言、高準確率、開源 |
 | NPU Runtime | RKNN Toolkit 2 | RK3588 原生支援、高效能 |
 | FFT 庫 | FFTW3 | 業界標準、高效能 |
+| 翻譯引擎 | Google ML Kit Translate 17.0.3 | 離線翻譯、免費、模型約 30MB |
+| 簡繁轉換 | opencc4j 1.14.0 | 純 Java、台灣繁體支援、無需額外資源 |
 | UI 框架 | Jetpack Compose | 聲明式、現代化 |
 | 非同步框架 | Kotlin Coroutines | 結構化併發、Flow 支援 |
 
@@ -416,14 +548,18 @@ EdgeMeeting SDK 是一套 **端上（On-Device）即時語音轉錄 SDK**，專�
 ## 九、SDK 整合範例
 
 ```kotlin
-// 1. 建立 Session
+// 1. 建立 Session（ASR 預設英文）
 val session = RkMeetingSession(
     bridge = JniEngineBridge(),
-    languageSetting = LanguageSetting.Fixed("zh"),
+    languageSetting = LanguageSetting.Fixed("en"),
     modelProvider = { ModelAssetManager.ensureModels(context) }
 )
 
-// 2. 觀察狀態
+// 2. 建立翻譯器（英文 → 繁體中文）
+val translator = MlKitTranslator()
+translator.downloadModelIfNeeded()  // 首次需下載 ~30MB
+
+// 3. 觀察狀態
 session.state.collect { state ->
     when (state) {
         is MeetingState.Ready -> showStartButton()
@@ -432,16 +568,25 @@ session.state.collect { state ->
     }
 }
 
-// 3. 收集字幕
+// 4. 收集字幕 + 即時翻譯
 session.transcriptFlow.collect { segments ->
-    updateSubtitleList(segments)
+    segments.forEach { segment ->
+        // 先顯示英文原文
+        showOriginalText(segment.text)
+        // 背景翻譯：英文 → 簡體中文 → 繁體中文
+        launch {
+            val translated = translator.translate(segment.text)
+            showTranslation(translated)  // 顯示繁體中文翻譯
+        }
+    }
 }
 
-// 4. 生命週期控制
-session.prepare()   // 載入模型
+// 5. 生命週期控制
+session.prepare()   // 載入 ASR 模型
 session.start()     // 開始錄音
 session.stop()      // 暫停錄音
 session.release()   // 釋放資源
+translator.close()  // 釋放翻譯資源
 ```
 
 ---
@@ -450,46 +595,98 @@ session.release()   // 釋放資源
 
 ```
 EdgeMeetingSDK/
-├── app/                          # 展示應用
-│   └── MainActivity.kt           # Compose UI
+├── app/                              # 展示應用 + 翻譯管線
+│   ├── MainActivity.kt               # 應用入口
+│   ├── translation/                   # 翻譯功能
+│   │   ├── MlKitTranslator.kt        # ML Kit 翻譯封裝（EN→簡中→繁中）
+│   │   └── TranscriptWithTranslation.kt  # 帶翻譯的字幕資料模型
+│   ├── ui/                            # Compose UI
+│   │   ├── MeetingScreenContent.kt    # 主畫面 UI
+│   │   ├── MeetingScreenController.kt # 狀態管理 + 翻譯流程整合
+│   │   ├── MeetingScreenContract.kt   # State/Actions 定義
+│   │   ├── TranscriptItemView.kt      # 字幕項目（雙語顯示）
+│   │   └── LanguageSelector.kt        # 語言選擇器
+│   └── util/
+│       └── TranscriptUtils.kt        # 字幕合併工具
 │
-├── meeting-core/                 # SDK 合約（純 Kotlin）
-│   └── MeetingSession.kt         # 主介面
+├── meeting-core/                     # SDK 合約（純 Kotlin）
+│   └── MeetingSession.kt             # 主介面
 │   └── model/
-│       ├── MeetingState.kt       # 狀態定義
-│       ├── TranscriptSegment.kt  # 字幕資料
-│       ├── AsrConfig.kt          # ASR 配置
-│       └── LanguageSetting.kt    # 語言設定
+│       ├── MeetingState.kt           # 狀態定義
+│       ├── TranscriptSegment.kt      # 字幕資料
+│       ├── AsrConfig.kt              # ASR 配置
+│       └── LanguageSetting.kt        # 語言設定
 │
-└── meeting-engine/               # SDK 實作
-    ├── RkMeetingSession.kt       # Session 實作
-    ├── ModelAssetManager.kt      # 模型管理
+└── meeting-engine/                   # SDK 實作
+    ├── RkMeetingSession.kt           # Session 實作
+    ├── ModelAssetManager.kt          # ASR 模型管理
     ├── bridge/
-    │   ├── EngineBridge.kt       # 橋接介面
-    │   └── JniEngineBridge.kt    # JNI 實作
+    │   ├── EngineBridge.kt           # 橋接介面
+    │   └── JniEngineBridge.kt        # JNI 實作
     └── cpp/
-        ├── native-lib.cpp        # JNI 入口
-        ├── AudioRecorder.cpp     # Oboe 錄音
-        ├── AudioProcessor.cpp    # 音訊處理
-        ├── RingBuffer.h          # 環形緩衝
+        ├── native-lib.cpp            # JNI 入口
+        ├── AudioRecorder.cpp         # Oboe 錄音
+        ├── AudioProcessor.cpp        # 音訊處理
+        ├── RingBuffer.h              # 環形緩衝
         └── asr/
-            ├── AsrEngine.h       # ASR 介面
+            ├── AsrEngine.h           # ASR 介面
             ├── WhisperAsrEngine.cpp  # Whisper 實作
-            └── WhisperUtils.cpp  # Mel 前處理
+            └── WhisperUtils.cpp      # Mel 前處理
 ```
 
 ---
 
-## 十一、總結
+## 十一、翻譯管線架構決策
 
-EdgeMeeting SDK 採用 **分層架構**，將純合約（meeting-core）與實作細節（meeting-engine）分離，實現高可測試性與可維護性。透過 RK3588 NPU 加速，達成端上即時語音轉錄，同時保障用戶隱私。
+### 11.1 為什麼翻譯放在 app 層？
 
-**核心競爭力**：
-1. **隱私**：所有處理在本地完成
-2. **效能**：NPU 加速，RTF < 0.3
-3. **多語言**：單一模型支援 4 種語言
-4. **易整合**：4 個 API 即可完成整合
+| 考量 | 說明 |
+|------|------|
+| **關注分離** | `meeting-core` 定義合約，`meeting-engine` 負責 ASR，翻譯是應用層關注 |
+| **不侵入 SDK** | `TranscriptSegment` 不被修改，翻譯結果僅在 UI 層維護 |
+| **彈性** | 不同應用可選擇不同翻譯方案（ML Kit / 雲端 API / 其他） |
+| **可測試性** | 翻譯邏輯與 ASR 邏輯獨立測試 |
+
+### 11.2 翻譯管線的錯誤處理策略
+
+```
+翻譯模型下載失敗 → 顯示錯誤提示，ASR 功能不受影響
+ML Kit 翻譯失敗   → translatedText = null，UI 顯示 "—"
+opencc4j 簡繁失敗 → 降級顯示簡體中文（不中斷流程）
+```
+
+### 11.3 為什麼用 ML Kit 而非 Whisper 直接輸出中文？
+
+Whisper 支援直接以 `zh` language token 輸出中文，但實際測試發現 **英文語音 + 英文 ASR 的辨識準確率遠高於直接用中文 ASR**。因此採用「先精確辨識英文，再翻譯成中文」的兩階段策略，以犧牲少量翻譯延遲換取更高的整體準確率。
+
+### 11.4 執行緒安全機制
+
+| 機制 | 用途 |
+|------|------|
+| `Mutex` | 保護 `transcriptState.items` 列表的併發修改 |
+| `Semaphore(1)` | 限制同時翻譯任務為 1，避免短時間大量請求 |
+| `StateFlow` | ML Kit 模型下載狀態的執行緒安全觀察 |
 
 ---
 
-*文件版本：1.0 | 最後更新：2026 年 1 月 30 日*
+## 十二、總結
+
+EdgeMeeting SDK 採用 **分層架構**，將純合約（meeting-core）與實作細節（meeting-engine）分離，並在應用層整合翻譯管線，實現高可測試性與可維護性。透過 RK3588 NPU 加速，達成端上即時語音轉錄與中文翻譯，同時保障用戶隱私。
+
+**核心競爭力**：
+1. **隱私**：語音辨識在本地完成，不傳送雲端
+2. **效能**：NPU 加速，RTF < 0.3
+3. **雙語字幕**：英文語音 → 英文原文 + 繁體中文翻譯同步顯示
+4. **離線能力**：ASR 模型 + 翻譯模型均支援離線使用（翻譯模型首次需下載）
+5. **易整合**：4 個 API 即可完成 ASR 整合
+
+**完整資料流**：
+```
+麥克風 → Oboe 錄音 → Whisper ASR (NPU) → 英文文字
+    → ML Kit Translate → 簡體中文 → opencc4j → 台灣繁體中文
+    → UI 雙語顯示
+```
+
+---
+
+*文件版本：2.0 | 最後更新：2026 年 2 月 9 日*
