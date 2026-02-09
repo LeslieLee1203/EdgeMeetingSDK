@@ -90,6 +90,17 @@ JAVA_HOME="$("/usr/libexec/java_home")"
 JAVA_HOME="$JAVA_HOME" ./gradlew :meeting-engine:test
 ```
 
+## Testing
+
+**Hardware and Device Testing:**
+- When working on embedded/Android SDK code, never attempt to connect to physical devices or deploy to hardware
+- Keep all testing local with mocks and unit tests
+
+**Test Quality Standards:**
+- Write real test assertions, never use placeholder tests like `SUCCEED()` or trivially passing stubs
+- All TDD tests must validate actual behavior
+- Tests must meaningfully verify the code they're testing
+
 ## C++ Native Tests
 
 C++ tests are compiled with Google Test but require execution on an Android device:
