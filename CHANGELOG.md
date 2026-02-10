@@ -1,5 +1,16 @@
 # 更新日誌 (CHANGELOG)
 
+## [2026-02-10] - 新增 Android App 通用開發指南
+
+### 文件
+- 新增 `docs/ANDROID-DEV-GUIDE.md`：從專案架構與 coding rules 萃取的通用 Android 開發指南
+  - 涵蓋 10 大章節：多模組架構、Kotlin 編碼風格、Jetpack Compose、狀態管理、Coroutines、設計模式、JNI/C++ 互通、測試策略、Build 設定、程式碼品質檢查清單
+  - 附錄包含推薦技術堆疊與專案初始化 Checklist
+  - 通用化設計，不限定特定專案使用
+  - 使用台灣繁體中文撰寫
+
+---
+
 ## [2026-02-09] - 更新專案架構文件 v2.0
 
 ### 文件
