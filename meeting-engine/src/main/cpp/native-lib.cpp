@@ -263,6 +263,50 @@ Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeStop(JNIEnv* env, jobje
 }
 
 JNIEXPORT void JNICALL
+Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeUpdateVadConfig(
+        JNIEnv* env, jobject thiz, jfloatArray params) {
+
+    if (!gAsrEngine) {
+        LOGW("nativeUpdateVadConfig: ASR engine not initialized, skip");
+        return;
+    }
+
+    jsize len = env->GetArrayLength(params);
+    if (len < 14) {
+        LOGE("nativeUpdateVadConfig: insufficient params (got %d, need 14)", len);
+        return;
+    }
+
+    jfloat* p = env->GetFloatArrayElements(params, nullptr);
+
+    // 欄位順序須與 JniEngineBridge.kt nativeUpdateVadConfig() 完全對齊
+    WhisperAsrEngine::VadParams vp;
+    vp.fastSilenceRms        = static_cast<double>(p[0]);
+    vp.fastSilenceZcr        = static_cast<double>(p[1]);
+    vp.silenceRms            = static_cast<double>(p[2]);
+    vp.pauseRms              = static_cast<double>(p[3]);
+    vp.silenceZcr            = static_cast<double>(p[4]);
+    vp.pauseZcr              = static_cast<double>(p[5]);
+    vp.silenceThresholdMs    = static_cast<int>(p[6]);
+    vp.pauseThresholdMs      = static_cast<int>(p[7]);
+    vp.minSpeechDurationMs   = static_cast<int>(p[8]);
+    vp.intermediateIntervalMs = static_cast<int>(p[9]);
+    vp.minSamples            = static_cast<size_t>(p[10]);
+    vp.maxSamples            = static_cast<size_t>(p[11]);
+    vp.energyThreshold       = static_cast<double>(p[12]);
+    vp.silenceRatioThreshold = static_cast<double>(p[13]);
+
+    env->ReleaseFloatArrayElements(params, p, JNI_ABORT);
+
+    auto* whisper = dynamic_cast<WhisperAsrEngine*>(gAsrEngine.get());
+    if (whisper) {
+        whisper->updateVadConfig(vp);
+    } else {
+        LOGW("nativeUpdateVadConfig: engine is not WhisperAsrEngine, skip");
+    }
+}
+
+JNIEXPORT void JNICALL
 Java_com_edgemeeting_engine_bridge_JniEngineBridge_nativeRelease(JNIEnv* env, jobject) {
     const auto order = buildReleaseOrderLabels(
         gProcessor != nullptr,

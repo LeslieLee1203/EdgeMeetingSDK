@@ -1,5 +1,6 @@
 package com.edgemeeting.sdk.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,6 +62,18 @@ fun MeetingScreenContent(
             onStop = actions.onStop,
             onRelease = actions.onRelease
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        VadDebugToggle(
+            isExpanded = state.isVadPanelExpanded,
+            onToggle = actions.onToggleVadPanel
+        )
+        AnimatedVisibility(visible = state.isVadPanelExpanded) {
+            VadConfigPanel(
+                config = state.vadConfig,
+                onConfigChanged = actions.onVadConfigChanged
+            )
+        }
     }
 }
 

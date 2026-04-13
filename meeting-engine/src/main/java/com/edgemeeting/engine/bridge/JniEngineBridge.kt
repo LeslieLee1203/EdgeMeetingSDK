@@ -3,6 +3,7 @@ package com.edgemeeting.engine.bridge
 import com.edgemeeting.core.model.AsrConfig
 import com.edgemeeting.core.model.LanguageSetting
 import com.edgemeeting.core.model.TranscriptSegment
+import com.edgemeeting.core.model.VadConfig
 
 class JniEngineBridge: EngineBridge {
 
@@ -69,6 +70,27 @@ class JniEngineBridge: EngineBridge {
         nativeRelease()
     }
 
+    override fun updateVadConfig(config: VadConfig) {
+        // 欄位順序須與 native-lib.cpp nativeUpdateVadConfig 完全對齊（index 0-13）
+        val params = floatArrayOf(
+            config.fastSilenceRmsThreshold,   // [0]
+            config.fastSilenceZcrThreshold,   // [1]
+            config.silenceRmsThreshold,       // [2]
+            config.pauseRmsThreshold,         // [3]
+            config.silenceZcrThreshold,       // [4]
+            config.pauseZcrThreshold,         // [5]
+            config.silenceThresholdMs.toFloat(),    // [6]
+            config.pauseThresholdMs.toFloat(),      // [7]
+            config.minSpeechDurationMs.toFloat(),   // [8]
+            config.intermediateIntervalMs.toFloat(), // [9]
+            config.minSamples.toFloat(),      // [10]
+            config.maxSamples.toFloat(),      // [11]
+            config.energyThreshold,           // [12]
+            config.silenceRatioThreshold      // [13]
+        )
+        nativeUpdateVadConfig(params)
+    }
+
     // ========== JNI 定義區 (External Functions) ==========
     // 命名慣例：加上 native 前綴，區分介面與實作
 
@@ -85,6 +107,7 @@ class JniEngineBridge: EngineBridge {
     private external fun nativeStart()
     private external fun nativeStop()
     private external fun nativeRelease()
+    private external fun nativeUpdateVadConfig(params: FloatArray)
 
     // --- 供 C++ 呼叫的方法 (Called by JNI) ---
     // C++ 無法直接呼叫 Interface，通常會呼叫這個 JniEngineBridge 的方法，再轉傳給 callback

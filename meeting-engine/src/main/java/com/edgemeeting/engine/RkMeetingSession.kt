@@ -5,6 +5,7 @@ import com.edgemeeting.core.model.AsrConfig
 import com.edgemeeting.core.model.LanguageSetting
 import com.edgemeeting.core.model.MeetingState
 import com.edgemeeting.core.model.TranscriptSegment
+import com.edgemeeting.core.model.VadConfig
 import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineBridge
 import com.edgemeeting.engine.bridge.EngineCallback
@@ -261,5 +262,9 @@ class RkMeetingSession(
 
         bridge.release()
         _state.value = MeetingState.Idle
+    }
+
+    override fun updateVadConfig(config: VadConfig) {
+        bridge.updateVadConfig(config)
     }
 }

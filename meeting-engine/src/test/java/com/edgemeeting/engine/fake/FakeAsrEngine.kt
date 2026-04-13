@@ -1,6 +1,7 @@
 package com.edgemeeting.engine.fake
 
 import com.edgemeeting.core.model.TranscriptSegment
+import com.edgemeeting.core.model.VadConfig
 import com.edgemeeting.engine.bridge.BridgeResult
 import com.edgemeeting.engine.bridge.EngineCallback
 import com.edgemeeting.engine.bridge.EngineConfig
@@ -48,6 +49,10 @@ class FakeAsrEngine : EngineBridge {
 
     // 配置（用於驗證）
     private var currentConfig: EngineConfig? = null
+
+    // VAD 配置追蹤（用於驗證 updateVadConfig 委派）
+    private var lastVadConfig: VadConfig? = null
+    private var vadConfigUpdateCount = 0
 
     /**
      * 初始化引擎
@@ -219,4 +224,15 @@ class FakeAsrEngine : EngineBridge {
     fun getRemainingSegmentCount(): Int {
         return injectedSegments.size - currentSegmentIndex
     }
+
+    override fun updateVadConfig(config: VadConfig) {
+        lastVadConfig = config
+        vadConfigUpdateCount++
+    }
+
+    /** 取得最後一次 updateVadConfig 傳入的配置（用於測試驗證）。*/
+    fun getLastVadConfig(): VadConfig? = lastVadConfig
+
+    /** 取得 updateVadConfig 被呼叫的次數（用於測試驗證）。*/
+    fun getVadConfigUpdateCount(): Int = vadConfigUpdateCount
 }

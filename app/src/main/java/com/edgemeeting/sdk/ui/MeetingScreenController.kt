@@ -15,6 +15,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.edgemeeting.core.MeetingSession
 import com.edgemeeting.core.model.LanguageSetting
+import com.edgemeeting.core.model.VadConfig
 import com.edgemeeting.sdk.R
 import com.edgemeeting.sdk.translation.MlKitTranslator
 import com.edgemeeting.sdk.translation.TranscriptWithTranslation
@@ -41,6 +42,9 @@ fun rememberMeetingScreenController(
     val session = remember(selectedLanguage) { createSession(selectedLanguage) }
     val meetingState by session.state.collectAsState()
 
+    var vadConfig by remember { mutableStateOf(VadConfig.Default) }
+    var isVadPanelExpanded by remember { mutableStateOf(false) }
+
     val translationState = rememberTranslationState()
     val transcriptState = rememberTranscriptState()
 
@@ -53,6 +57,13 @@ fun rememberMeetingScreenController(
         onTranslationError = { translationState.setError(R.string.translation_failed) },
         onTranslationRecovered = translationState.clearError
     )
+
+    // 語言切換後新 session 建立，將當前 vadConfig 同步過去
+    LaunchedEffect(session) {
+        if (vadConfig != VadConfig.Default) {
+            session.updateVadConfig(vadConfig)
+        }
+    }
 
     val actions = rememberActions(
         translator = translationState.translator,
@@ -68,7 +79,12 @@ fun rememberMeetingScreenController(
         onLanguageChanged = { newLanguage ->
             selectedLanguage = newLanguage
             transcriptState.items.clear()
-        }
+        },
+        onVadConfigChanged = { newConfig ->
+            vadConfig = newConfig
+            session.updateVadConfig(newConfig)
+        },
+        onToggleVadPanel = { isVadPanelExpanded = !isVadPanelExpanded }
     )
 
     return MeetingScreenController(
@@ -78,7 +94,9 @@ fun rememberMeetingScreenController(
             transcriptItems = transcriptState.items,
             modelReady = translationState.modelReady,
             isDownloading = translationState.isDownloading,
-            translateErrorResId = translationState.translateErrorResId
+            translateErrorResId = translationState.translateErrorResId,
+            vadConfig = vadConfig,
+            isVadPanelExpanded = isVadPanelExpanded
         ),
         actions = actions
     )
@@ -209,7 +227,9 @@ private fun rememberActions(
     onStart: () -> Unit,
     onStop: () -> Unit,
     onRelease: () -> Unit,
-    onLanguageChanged: (LanguageSetting) -> Unit
+    onLanguageChanged: (LanguageSetting) -> Unit,
+    onVadConfigChanged: (VadConfig) -> Unit,
+    onToggleVadPanel: () -> Unit
 ): MeetingScreenActions {
     return MeetingScreenActions(
         onLanguageChanged = onLanguageChanged,
@@ -229,6 +249,8 @@ private fun rememberActions(
         },
         onStart = onStart,
         onStop = onStop,
-        onRelease = onRelease
+        onRelease = onRelease,
+        onVadConfigChanged = onVadConfigChanged,
+        onToggleVadPanel = onToggleVadPanel
     )
 }

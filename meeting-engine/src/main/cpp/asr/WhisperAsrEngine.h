@@ -24,6 +24,34 @@ using TranscriptCallback = std::function<void(
 
 class WhisperAsrEngine : public AsrEngine {
 public:
+    /**
+     * VAD 可調整參數（對應 Kotlin VadConfig）
+     *
+     * 固定欄位順序：JNI nativeUpdateVadConfig 的 floatArray 依此順序打包。
+     * 新增欄位時須同步更新 JniEngineBridge.kt 與 native-lib.cpp。
+     */
+    struct VadParams {
+        // 快速靜音偵測（detectSilence）
+        double fastSilenceRms = 1200.0;
+        double fastSilenceZcr = 0.05;
+        // 精確 VAD 分類（detectVadState）
+        double silenceRms     = 40.0;
+        double pauseRms       = 150.0;
+        double silenceZcr     = 0.03;
+        double pauseZcr       = 0.20;
+        // 推論觸發時間閾值（pushAudio）
+        int silenceThresholdMs    = 800;
+        int pauseThresholdMs      = 1500;
+        int minSpeechDurationMs   = 2000;
+        int intermediateIntervalMs = 5000;
+        // 樣本大小限制（pushAudio）
+        size_t minSamples = 48000;    // 3s @ 16kHz
+        size_t maxSamples = 256000;   // 16s @ 16kHz
+        // 能量預檢（shouldSkipInference）
+        double energyThreshold       = 25.0;
+        double silenceRatioThreshold = 0.90;
+    };
+
     WhisperAsrEngine();
     ~WhisperAsrEngine() override;
 
@@ -38,6 +66,14 @@ public:
     void pushAudio(const int16_t* pcm, size_t samples) override;
     void stop() override;
     void release() override;
+
+    /**
+     * 熱更新 VAD 參數（執行緒安全，可在錄音中呼叫）
+     *
+     * 使用獨立 vadMutex 保護，不會與 audioMutex 嵌套，不會死鎖。
+     * 下一個 pushAudio() 呼叫即生效（延遲 ≤10ms）。
+     */
+    void updateVadConfig(const VadParams& params);
 
 private:
     // PImpl idiom

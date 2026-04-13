@@ -1,6 +1,7 @@
 package com.edgemeeting.engine.bridge
 
 import com.edgemeeting.core.model.TranscriptSegment
+import com.edgemeeting.core.model.VadConfig
 
 /**
  * 引擎回調介面（統一音訊與 ASR 回調）
@@ -96,4 +97,11 @@ interface EngineBridge {
      * 釋放 C++ 記憶體資源
      */
     fun release()
+
+    /**
+     * 熱更新 VAD 參數（可在錄音中呼叫）
+     *
+     * 預設為 no-op，Fake 實作與非 ASR 模式不需實作。
+     */
+    fun updateVadConfig(config: VadConfig) {}
 }

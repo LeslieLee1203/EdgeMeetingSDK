@@ -144,7 +144,11 @@ struct WhisperAsrEngine::Impl {
     // === VAD 狀態穩定性機制（方案 A 任務 3）===
     VadState currentVadState = VadState::SILENCE;  // 當前穩定的 VAD 狀態
     int vadStateHoldMs = 0;                        // 當前狀態持續時間（毫秒）
-    static constexpr int MIN_STATE_HOLD_MS = 300;  // VAD 優化: 200ms -> 300ms (進一步增強去抖動)
+    int minStateHoldMs = 300;                      // VAD 去抖動時間（固定，非熱更新參數）
+
+    // === 熱更新 VAD 參數 ===
+    WhisperAsrEngine::VadParams vadParams;         // 可調整的 VAD 參數（預設值與 C++ 常數一致）
+    std::mutex vadMutex;                           // 保護 vadParams 讀寫（獨立於 audioMutex）
 
     // === 新增：推論線程相關 ===
     struct InferenceRequest {
@@ -163,7 +167,7 @@ struct WhisperAsrEngine::Impl {
 
     // === 方案 B：漸進式推論相關變數 ===
     long lastIntermediateInferenceMs = 0;       // 上次中間推論的時間點
-    static constexpr int INTERMEDIATE_INTERVAL_MS = 5000;  // 中間推論間隔：5 秒
+    // INTERMEDIATE_INTERVAL_MS 已移至 vadParams.intermediateIntervalMs（支援熱更新）
 
     // === 品質感知：追蹤最佳 INTERMEDIATE 結果 ===
     std::string lastBestIntermediateText;      // 最佳 INTERMEDIATE 文字
@@ -505,11 +509,18 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
         }
 
         // === 推論觸發判斷 - 方案 B：雙軌推論機制 ===
-        const size_t MIN_SAMPLES = 16000 * 3;   // 最低總音訊長度：3 秒
-        const size_t MAX_SAMPLES = 16000 * 16;  // 最大緩衝：16 秒（放寬上限，允許更長語句）
-        const int SILENCE_THRESHOLD_MS = 800;   // 靜音觸發閾值
-        const int PAUSE_THRESHOLD_MS = 1500;    // PAUSE 持續觸發閾值
-        const int MIN_SPEECH_DURATION_MS = 2000; // 最低語音時長：2 秒
+        // 從 VadParams 讀取觸發閾值（vadMutex 保護，支援熱更新）
+        // 注意：vadMutex 僅在此短暫複製區間持有，不與 audioMutex 嵌套
+        WhisperAsrEngine::VadParams vp;
+        {
+            std::lock_guard<std::mutex> lock(impl_->vadMutex);
+            vp = impl_->vadParams;
+        }
+        const size_t MIN_SAMPLES = vp.minSamples;
+        const size_t MAX_SAMPLES = vp.maxSamples;
+        const int SILENCE_THRESHOLD_MS = vp.silenceThresholdMs;
+        const int PAUSE_THRESHOLD_MS = vp.pauseThresholdMs;
+        const int MIN_SPEECH_DURATION_MS = vp.minSpeechDurationMs;
 
         // 已移除 URGENT 機制（窗口期太短，效果與正常觸發重疊）
         // const size_t URGENT_SAMPLES = 16000 * 13;
@@ -523,7 +534,7 @@ void WhisperAsrEngine::pushAudio(const int16_t* pcm, size_t samples) {
         // 優先檢查，提供即時反饋（每 5 秒）
         long timeSinceLastIntermediate = impl_->totalAudioMs - impl_->lastIntermediateInferenceMs;
         if (!impl_->isInferring.load(std::memory_order_acquire) &&
-            timeSinceLastIntermediate >= Impl::INTERMEDIATE_INTERVAL_MS &&
+            timeSinceLastIntermediate >= vp.intermediateIntervalMs &&
             impl_->audioBuffer.size() >= MIN_SAMPLES &&
             impl_->speechDurationMs >= MIN_SPEECH_DURATION_MS) {
             shouldInfer = true;
@@ -867,6 +878,18 @@ std::string WhisperAsrEngine::runInference(const int16_t* pcmData, size_t sample
     return text;
 }
 
+void WhisperAsrEngine::updateVadConfig(const VadParams& params) {
+    std::lock_guard<std::mutex> lock(impl_->vadMutex);
+    impl_->vadParams = params;
+    LOGI("VAD config updated: fastSilRms=%.1f, silRms=%.1f, pauseRms=%.1f, "
+         "silMs=%d, pauseMs=%d, minSpeechMs=%d, intermediateMs=%d, "
+         "minSamples=%zu, maxSamples=%zu, energyThr=%.1f, silRatio=%.2f",
+         params.fastSilenceRms, params.silenceRms, params.pauseRms,
+         params.silenceThresholdMs, params.pauseThresholdMs, params.minSpeechDurationMs,
+         params.intermediateIntervalMs, params.minSamples, params.maxSamples,
+         params.energyThreshold, params.silenceRatioThreshold);
+}
+
 bool WhisperAsrEngine::loadRknnModel(const std::string& modelPath, void* context) {
     return false; // Deprecated, using init_rknn_model locally
 }
@@ -910,15 +933,15 @@ bool WhisperAsrEngine::detectSilence(const int16_t* pcm, size_t samples) {
     }
     double zcr = static_cast<double>(zeroCrossings) / samples;
 
-    // 3. Thresholds (Phase 1A & 1B)
-    // 閾值設定理由：
-    // RMS = 1200: 對應約 -45dBFS (16-bit)，能過濾大多數辦公室背景噪音。
-    // ZCR = 0.05: 即每 100 個採樣點少於 5 次翻轉 (對應 < 800Hz 的單調波形)。
-    const double SILENCE_RMS_THRESHOLD = 1200.0; 
-    const double SILENCE_ZCR_THRESHOLD = 0.05;
+    // 3. 從 VadParams 讀取閾值（vadMutex 保護，支援熱更新）
+    WhisperAsrEngine::VadParams vp;
+    {
+        std::lock_guard<std::mutex> lock(impl_->vadMutex);
+        vp = impl_->vadParams;
+    }
 
-    bool isLowEnergy = (rms < SILENCE_RMS_THRESHOLD);
-    bool isLowVariation = (zcr < SILENCE_ZCR_THRESHOLD);
+    bool isLowEnergy = (rms < vp.fastSilenceRms);
+    bool isLowVariation = (zcr < vp.fastSilenceZcr);
     
     bool isSilence = isLowEnergy && isLowVariation;
 
@@ -948,11 +971,12 @@ bool WhisperAsrEngine::detectSilence(const int16_t* pcm, size_t samples) {
 bool WhisperAsrEngine::shouldSkipInference(const int16_t* pcm, size_t samples) {
     const size_t WINDOW_SIZE = 1600;  // 100ms @ 16kHz
 
-    // Production 版修正：降低閾值以匹配實際錄音音量
-    // 根據日誌分析，真實語音的 RMS 約在 20-200 範圍
-    // 因此閾值應設定在 50 以下，確保不會誤殺真實語音
-    const double ENERGY_THRESHOLD = 25.0;  // 修正：30 -> 25 (進一步降低，避免誤刪語音)
-    const double SILENCE_RATIO_THRESHOLD = 0.90;  // 修正：0.95 -> 0.90 (降低靜音比例要求)
+    // 從 VadParams 讀取閾值（vadMutex 保護，支援熱更新）
+    WhisperAsrEngine::VadParams vp;
+    {
+        std::lock_guard<std::mutex> lock(impl_->vadMutex);
+        vp = impl_->vadParams;
+    }
 
     size_t totalWindows = samples / WINDOW_SIZE;
     if (totalWindows == 0) return false;
@@ -971,13 +995,13 @@ bool WhisperAsrEngine::shouldSkipInference(const int16_t* pcm, size_t samples) {
 
         if (rms > maxRms) maxRms = rms;
 
-        if (rms < ENERGY_THRESHOLD) {
+        if (rms < vp.energyThreshold) {
             silentWindows++;
         }
     }
 
     double silenceRatio = static_cast<double>(silentWindows) / totalWindows;
-    bool shouldSkip = silenceRatio >= SILENCE_RATIO_THRESHOLD;
+    bool shouldSkip = silenceRatio >= vp.silenceRatioThreshold;
 
     // Debug Log
     if (impl_->audioBuffer.size() % (16000 * 10) < samples) {  // Log every ~10s
@@ -1024,38 +1048,34 @@ WhisperAsrEngine::VadState WhisperAsrEngine::detectVadState(const int16_t* pcm, 
     }
     double zcr = static_cast<double>(zeroCrossings) / samples;
 
-    // 3. 修正後的閾值（基於實際日誌數據校準 - VAD 穩定性優化）
-    const double SILENCE_RMS_THRESHOLD = 40.0;    // 保持不變
-    const double PAUSE_RMS_THRESHOLD = 150.0;     // VAD 優化: 220 -> 150 (**關鍵修改**：避免中高能量語音被誤判為 PAUSE)
-    const double SILENCE_ZCR_THRESHOLD = 0.03;    // 保持不變
-    const double PAUSE_ZCR_THRESHOLD = 0.20;      // 保持不變
+    // 3. 從 VadParams 讀取閾值（vadMutex 保護，支援熱更新）
+    WhisperAsrEngine::VadParams vp;
+    {
+        std::lock_guard<std::mutex> lock(impl_->vadMutex);
+        vp = impl_->vadParams;
+    }
 
     VadState rawState;
 
-    // === 優化後的 VAD 判定邏輯（三層判定）===
-    //
-    // 策略說明：
-    // - RMS < 40:        絕對靜音（環境底噪）→ SILENCE
-    // - RMS 40-150:      中等能量區，綜合 ZCR 判斷
-    //   - ZCR < 0.20:    低頻停頓（如呼吸聲、輕聲）→ PAUSE
-    //   - ZCR >= 0.20:   語音特徵（有頻率變化）→ SPEECH
-    // - RMS > 150:       高能量區，直接判為 SPEECH（避免誤判）
-    //
-    // 理由：從 log_005_.txt 的 RMS 分佈分析，RMS > 150 的樣本中
-    // 90% 是真實語音，只有 10% 是強停頓。因此 RMS > 150 應優先判為 SPEECH。
+    // === VAD 三層判定邏輯 ===
+    // - RMS < silenceRms:             絕對靜音 → SILENCE
+    // - silenceRms ≤ RMS < pauseRms:  中等能量，依 ZCR 判斷
+    //   - ZCR < pauseZcr:             低頻停頓 → PAUSE
+    //   - ZCR ≥ pauseZcr:             語音 → SPEECH
+    // - RMS ≥ pauseRms:               高能量直接 → SPEECH
 
-    if (rms < SILENCE_RMS_THRESHOLD) {
+    if (rms < vp.silenceRms) {
         // 第 1 層：絕對靜音
         rawState = VadState::SILENCE;
-    } else if (rms < PAUSE_RMS_THRESHOLD) {
-        // 第 2 層：中等能量區 (40-150)，依賴 ZCR 綜合判斷
-        if (zcr < PAUSE_ZCR_THRESHOLD) {
+    } else if (rms < vp.pauseRms) {
+        // 第 2 層：中等能量區，依賴 ZCR 判斷
+        if (zcr < vp.pauseZcr) {
             rawState = VadState::PAUSE;    // 低頻停頓或輕聲
         } else {
             rawState = VadState::SPEECH;   // 語音（有頻率變化）
         }
     } else {
-        // 第 3 層：高能量區 (>150)，直接判為 SPEECH
+        // 第 3 層：高能量區，直接判為 SPEECH
         rawState = VadState::SPEECH;
     }
 
@@ -1070,7 +1090,7 @@ WhisperAsrEngine::VadState WhisperAsrEngine::detectVadState(const int16_t* pcm, 
         state = impl_->currentVadState;
     } else {
         // 狀態變化，檢查是否持續足夠長時間
-        if (impl_->vadStateHoldMs >= Impl::MIN_STATE_HOLD_MS) {
+        if (impl_->vadStateHoldMs >= impl_->minStateHoldMs) {
             // 允許切換到新狀態
             impl_->currentVadState = rawState;
             impl_->vadStateHoldMs = chunkDurationMs;
@@ -1103,8 +1123,8 @@ WhisperAsrEngine::VadState WhisperAsrEngine::detectVadState(const int16_t* pcm, 
         const char* state_str = (state == VadState::SILENCE) ? "SILENCE" :
                                 (state == VadState::PAUSE) ? "PAUSE" : "SPEECH";
         LOGD("VAD Status: RMS=%.2f (S<%.0f, P<%.0f), ZCR=%.4f (S<%.2f, P<%.2f), State=%s",
-             rms, SILENCE_RMS_THRESHOLD, PAUSE_RMS_THRESHOLD,
-             zcr, SILENCE_ZCR_THRESHOLD, PAUSE_ZCR_THRESHOLD,
+             rms, vp.silenceRms, vp.pauseRms,
+             zcr, vp.silenceZcr, vp.pauseZcr,
              state_str);
         lastLogTimeMs = currentTimeMs;
     }
